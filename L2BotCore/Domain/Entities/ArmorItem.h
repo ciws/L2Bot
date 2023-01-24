@@ -113,7 +113,8 @@ namespace L2Bot::Domain::Entities
 				name,
 				iconName,
 				description,
-				weight
+				weight,
+				Enums::ItemType::armor
 			),
 			m_IsEquipped(isEquipped),
 			m_EnchantLevel(enchantLevel),
