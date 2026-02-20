@@ -22,6 +22,8 @@ using System;
 using Client.Infrastructure.Service;
 using System.Collections.Generic;
 using System.Linq;
+using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace Client
 {
@@ -31,6 +33,7 @@ namespace Client
     public partial class App : System.Windows.Application
     {
         public static IHost? AppHost { get; private set; }
+        private Bot? bot;
 
         public App()
         {
@@ -43,20 +46,37 @@ namespace Client
 
         protected override async void OnStartup(StartupEventArgs e)
         {
-            await AppHost!.StartAsync();
+            try
+            {
+                await AppHost!.StartAsync();
 
-            var startupForm = AppHost.Services.GetRequiredService<MainWindow>();
-            startupForm.Show();
+                var startupForm = AppHost.Services.GetRequiredService<MainWindow>();
+                startupForm.Show();
 
-            var application = AppHost.Services.GetRequiredService<Bot>();
-            application.StartAsync();
+                bot = AppHost.Services.GetRequiredService<Bot>();
+                _ = bot.StartAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Startup error: " + ex);
+                Shutdown(-1);
+            }
 
             base.OnStartup(e);
         }
 
         protected override async void OnExit(ExitEventArgs e)
         {
-            await AppHost!.StopAsync();
+            if (bot != null)
+            {
+                await bot.StopAsync();
+            }
+
+            if (AppHost != null)
+            {
+                await AppHost.StopAsync();
+                AppHost.Dispose();
+            }
 
             base.OnExit(e);
         }

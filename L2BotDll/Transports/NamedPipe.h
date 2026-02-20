@@ -4,6 +4,7 @@
 #include <string>
 #include <memory>
 #include <cstdint>
+#include <atomic>
 #include <format>
 #include "Domain/Exceptions.h"
 #include "Domain/Services/ServiceLocator.h"
@@ -15,18 +16,22 @@ class NamedPipe
 public:
 	const bool Connect(const std::wstring& pipeName)
 	{
-		if (m_Pipe == NULL || m_PipeName != pipeName)
+		m_StopRequested = false;
+		const bool recreatePipe = m_Pipe == NULL || m_Pipe == INVALID_HANDLE_VALUE || m_PipeName != pipeName;
+		m_PipeName = pipeName;
+
+		if (recreatePipe)
 		{
-			if (m_Pipe != NULL) {
+			if (m_Pipe != NULL && m_Pipe != INVALID_HANDLE_VALUE)
+			{
 				DisconnectNamedPipe(m_Pipe);
 				CloseHandle(m_Pipe);
+				m_Pipe = NULL;
 			}
-			else
-			{
-				CreateOverlapped(m_ConntectingOverlapped);
-				CreateOverlapped(m_ReadingOverlapped);
-				CreateOverlapped(m_WritingOverlapped);
-			}
+
+			CreateOverlapped(m_ConntectingOverlapped);
+			CreateOverlapped(m_ReadingOverlapped);
+			CreateOverlapped(m_WritingOverlapped);
 
 			m_Pipe = CreateNamedPipeW((L"\\\\.\\pipe\\" + pipeName).c_str(),
 				PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
@@ -40,7 +45,7 @@ public:
 
 			if (m_Pipe == INVALID_HANDLE_VALUE)
 			{
-				throw CriticalRuntimeException(std::format(L"cannot create the pipe {}: {}", m_PipeName, GetLastError()));
+				throw CriticalRuntimeException(std::format(L"cannot create the pipe {}: {}", pipeName, GetLastError()));
 			}
 		}
 		else
@@ -48,16 +53,58 @@ public:
 			DisconnectNamedPipe(m_Pipe);
 		}
 
-		TryToConnect();
+		ResetEvent(m_ConntectingOverlapped.hEvent);
+		const auto result = ConnectNamedPipe(m_Pipe, &m_ConntectingOverlapped);
+		if (result)
+		{
+			m_Connected = true;
+			return true;
+		}
 
-		WaitForMultipleObjects(1, &m_ConntectingOverlapped.hEvent, false, INFINITE);
+		const auto lastError = GetLastError();
+		if (lastError == ERROR_PIPE_CONNECTED)
+		{
+			SetEvent(m_ConntectingOverlapped.hEvent);
+			m_Connected = true;
+			return true;
+		}
+		if (lastError != ERROR_IO_PENDING)
+		{
+			throw CriticalRuntimeException(std::format(L"cannot connect the pipe {}: {}", m_PipeName, lastError));
+		}
 
-		DWORD ret;
-		m_Connected = GetOverlappedResult(m_Pipe, &m_ConntectingOverlapped, &ret, false);
+		while (!m_StopRequested)
+		{
+			const auto waitResult = WaitForSingleObject(m_ConntectingOverlapped.hEvent, 250);
+			if (waitResult == WAIT_TIMEOUT)
+			{
+				continue;
+			}
+			if (waitResult != WAIT_OBJECT_0)
+			{
+				throw CriticalRuntimeException(std::format(L"an error has occurred when connecting to the pipe {}: {}", m_PipeName, GetLastError()));
+			}
 
-		m_PipeName = pipeName;
+			DWORD ret = 0;
+			const auto overlappedResult = GetOverlappedResult(m_Pipe, &m_ConntectingOverlapped, &ret, FALSE);
+			if (!overlappedResult)
+			{
+				const auto overlappedError = GetLastError();
+				if (overlappedError == ERROR_OPERATION_ABORTED || m_StopRequested)
+				{
+					m_Connected = false;
+					return false;
+				}
 
-		return m_Connected;
+				throw CriticalRuntimeException(std::format(L"cannot get overlapped result for the pipe {} when connecting: {}", m_PipeName, overlappedError));
+			}
+
+			m_Connected = true;
+			return true;
+		}
+
+		m_Connected = false;
+		return false;
 	}
 
 	void Send(const std::wstring& message)
@@ -69,22 +116,48 @@ public:
 
 		const std::wstring preparedMessage = message + L"\n";
 
+		ResetEvent(m_WritingOverlapped.hEvent);
 		DWORD written;
-		const auto result = WriteFile(m_Pipe, message.c_str(), (message.size() + 1) * sizeof(wchar_t), &written, &m_WritingOverlapped);
+		const auto result = WriteFile(m_Pipe, preparedMessage.c_str(), static_cast<DWORD>((preparedMessage.size() + 1) * sizeof(wchar_t)), &written, &m_WritingOverlapped);
 
 		const auto lastError = GetLastError();
 		if (!result)
 		{
 			if (lastError == ERROR_IO_PENDING)
 			{
-				WaitForMultipleObjects(1, &m_WritingOverlapped.hEvent, false, INFINITE);
-				DWORD ret;
-				const auto overlappedResult = GetOverlappedResult(m_Pipe, &m_WritingOverlapped, &ret, false);
-				if (!overlappedResult)
+				while (!m_StopRequested)
 				{
-					m_Connected = false;
-					throw CriticalRuntimeException(std::format(L"cannot get overlapped result for the pipe {} when writing", m_PipeName));
+					const auto waitResult = WaitForSingleObject(m_WritingOverlapped.hEvent, 250);
+					if (waitResult == WAIT_TIMEOUT)
+					{
+						continue;
+					}
+					if (waitResult != WAIT_OBJECT_0)
+					{
+						m_Connected = false;
+						throw CriticalRuntimeException(std::format(L"cannot wait for writing to the pipe {}: {}", m_PipeName, GetLastError()));
+					}
+
+					DWORD ret = 0;
+					const auto overlappedResult = GetOverlappedResult(m_Pipe, &m_WritingOverlapped, &ret, FALSE);
+					if (!overlappedResult)
+					{
+						const auto overlappedError = GetLastError();
+						if (overlappedError == ERROR_OPERATION_ABORTED || m_StopRequested)
+						{
+							m_Connected = false;
+							return;
+						}
+
+						m_Connected = false;
+						throw CriticalRuntimeException(std::format(L"cannot get overlapped result for the pipe {} when writing: {}", m_PipeName, overlappedError));
+					}
+
+					return;
 				}
+
+				m_Connected = false;
+				return;
 			}
 			else
 			{
@@ -96,13 +169,14 @@ public:
 
 	const std::wstring Receive()
 	{
-		if (!m_Connected)
+		if (!m_Connected || m_StopRequested)
 		{
 			return L"";
 		}
 
 		DWORD dwRead;
 		std::unique_ptr<wchar_t[]> buffer = std::make_unique<wchar_t[]>(BUFFER_SIZE);
+		ResetEvent(m_ReadingOverlapped.hEvent);
 		const auto result = ReadFile(m_Pipe, buffer.get(), BUFFER_SIZE * sizeof(wchar_t), &dwRead, &m_ReadingOverlapped);
 
 		const auto lastError = GetLastError();
@@ -110,17 +184,50 @@ public:
 		{
 			if (lastError == ERROR_IO_PENDING)
 			{
-				WaitForMultipleObjects(1, &m_ReadingOverlapped.hEvent, false, INFINITE);
-				DWORD ret;
-				const auto overlappedResult = GetOverlappedResult(m_Pipe, &m_ReadingOverlapped, &ret, false);
-				if (!overlappedResult)
+				while (!m_StopRequested)
+				{
+					const auto waitResult = WaitForSingleObject(m_ReadingOverlapped.hEvent, 250);
+					if (waitResult == WAIT_TIMEOUT)
+					{
+						continue;
+					}
+					if (waitResult != WAIT_OBJECT_0)
+					{
+						m_Connected = false;
+						throw CriticalRuntimeException(std::format(L"cannot wait for reading from the pipe {}: {}", m_PipeName, GetLastError()));
+					}
+
+					DWORD ret = 0;
+					const auto overlappedResult = GetOverlappedResult(m_Pipe, &m_ReadingOverlapped, &ret, FALSE);
+					if (!overlappedResult)
+					{
+						const auto overlappedError = GetLastError();
+						if (overlappedError == ERROR_OPERATION_ABORTED || m_StopRequested || overlappedError == ERROR_BROKEN_PIPE)
+						{
+							m_Connected = false;
+							return L"";
+						}
+
+						m_Connected = false;
+						throw CriticalRuntimeException(std::format(L"cannot get overlapped result for the pipe {} when reading: {}", m_PipeName, overlappedError));
+					}
+
+					break;
+				}
+
+				if (m_StopRequested)
 				{
 					m_Connected = false;
-					throw CriticalRuntimeException(std::format(L"cannot get overlapped result for the pipe {} when reading", m_PipeName));
+					return L"";
 				}
 			}
 			else
 			{
+				if (lastError == ERROR_BROKEN_PIPE)
+				{
+					m_Connected = false;
+					return L"";
+				}
 				m_Connected = false;
 				throw CriticalRuntimeException(std::format(L"cannot read from the pipe {}: {}", m_PipeName, lastError));
 			}
@@ -136,43 +243,65 @@ public:
 		return m_Connected;
 	}
 
+	void RequestStop()
+	{
+		m_StopRequested = true;
+		m_Connected = false;
+
+		if (m_Pipe != NULL && m_Pipe != INVALID_HANDLE_VALUE)
+		{
+			CancelIoEx(m_Pipe, &m_ConntectingOverlapped);
+			CancelIoEx(m_Pipe, &m_ReadingOverlapped);
+			CancelIoEx(m_Pipe, &m_WritingOverlapped);
+		}
+
+		if (m_ConntectingOverlapped.hEvent != NULL)
+		{
+			SetEvent(m_ConntectingOverlapped.hEvent);
+		}
+		if (m_ReadingOverlapped.hEvent != NULL)
+		{
+			SetEvent(m_ReadingOverlapped.hEvent);
+		}
+		if (m_WritingOverlapped.hEvent != NULL)
+		{
+			SetEvent(m_WritingOverlapped.hEvent);
+		}
+	}
+
 	virtual ~NamedPipe()
 	{
-		if (m_Pipe != NULL)
+		RequestStop();
+
+		if (m_ConntectingOverlapped.hEvent != NULL)
+		{
+			CloseHandle(m_ConntectingOverlapped.hEvent);
+			m_ConntectingOverlapped.hEvent = NULL;
+		}
+		if (m_ReadingOverlapped.hEvent != NULL)
+		{
+			CloseHandle(m_ReadingOverlapped.hEvent);
+			m_ReadingOverlapped.hEvent = NULL;
+		}
+		if (m_WritingOverlapped.hEvent != NULL)
+		{
+			CloseHandle(m_WritingOverlapped.hEvent);
+			m_WritingOverlapped.hEvent = NULL;
+		}
+		if (m_Pipe != NULL && m_Pipe != INVALID_HANDLE_VALUE)
 		{
 			CloseHandle(m_Pipe);
+			m_Pipe = NULL;
 		}
 	}
 	NamedPipe() = default;
 
 private:
-	void TryToConnect()
-	{
-		const bool connected = ConnectNamedPipe(m_Pipe, &m_ConntectingOverlapped) == 0;
-		if (!connected)
-		{
-			throw CriticalRuntimeException(std::format(L"cannot connect the pipe {}: {}", m_PipeName, GetLastError()));
-		}
-
-		switch (GetLastError())
-		{
-			// The overlapped connection in progress. 
-		case ERROR_IO_PENDING:
-			break;
-			// Client is already connected, so signal an event. 
-		case ERROR_PIPE_CONNECTED:
-			if (SetEvent(m_ConntectingOverlapped.hEvent))
-				break;
-		default:
-			throw CriticalRuntimeException(std::format(L"an error has occurred when connecting to the pipe ""{}"": {}", m_PipeName, GetLastError()));
-		}
-	}
-
 	void CreateOverlapped(OVERLAPPED& overlapped)
 	{
 		if (overlapped.hEvent == NULL)
 		{
-			overlapped.hEvent = CreateEvent(NULL, TRUE, TRUE, NULL);
+			overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 			if (overlapped.hEvent == NULL)
 			{
 				throw CriticalRuntimeException(std::format(L"cannot create overlapped for the pipe {}: {}", m_PipeName, GetLastError()));
@@ -186,6 +315,7 @@ private:
 	std::wstring m_PipeName = L"";
 	HANDLE m_Pipe = NULL;
 	bool m_Connected = false;
+	std::atomic_bool m_StopRequested = false;
 	OVERLAPPED m_ConntectingOverlapped = OVERLAPPED();
 	OVERLAPPED m_ReadingOverlapped = OVERLAPPED();
 	OVERLAPPED m_WritingOverlapped = OVERLAPPED();

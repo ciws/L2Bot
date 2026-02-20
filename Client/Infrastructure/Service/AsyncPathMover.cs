@@ -131,7 +131,7 @@ namespace Client.Infrastructure.Service
                         return false;
                     }
                 }
-                Task.Delay(25);
+                Thread.Sleep(25);
             }
 
             return true;

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <thread>
 #include <memory>
+#include <atomic>
 #include <Windows.h>
 #include "../Serializers/SerializerInterface.h"
 #include "../Repositories/EntityRepositoryInterface.h"
@@ -46,7 +47,8 @@ namespace L2Bot::Domain::Services
 
 		void Stop()
 		{
-			m_Stopped = true;
+			m_Stopped.store(true);
+			m_Transport.Stop();
 			if (m_ConnectingThread.joinable())
 			{
 				m_ConnectingThread.join();
@@ -66,7 +68,7 @@ namespace L2Bot::Domain::Services
 	private:
 		void Send()
 		{
-			while (!m_Stopped)
+			while (!m_Stopped.load())
 			{
 				try {
 					const auto& messages = GetOutgoingMessages();
@@ -85,7 +87,7 @@ namespace L2Bot::Domain::Services
 				}
 				catch (const CriticalRuntimeException& e)
 				{
-					m_Stopped = true;
+					m_Stopped.store(true);
 					ServiceLocator::GetInstance().GetLogger()->Error(e.Message());
 				}
 				catch (const RuntimeException& e)
@@ -97,7 +99,7 @@ namespace L2Bot::Domain::Services
 
 		void Receive()
 		{
-			while (!m_Stopped)
+			while (!m_Stopped.load())
 			{
 				try {
 					if (m_Transport.IsConnected())
@@ -114,7 +116,7 @@ namespace L2Bot::Domain::Services
 				}
 				catch (const CriticalRuntimeException& e)
 				{
-					m_Stopped = true;
+					m_Stopped.store(true);
 					ServiceLocator::GetInstance().GetLogger()->Error(e.Message());
 				}
 				catch (const RuntimeException& e)
@@ -126,7 +128,7 @@ namespace L2Bot::Domain::Services
 
 		void Connect()
 		{
-			while (!m_Stopped)
+			while (!m_Stopped.load())
 			{
 				try {
 					if (!m_Transport.IsConnected())
@@ -137,7 +139,7 @@ namespace L2Bot::Domain::Services
 				}
 				catch (const CriticalRuntimeException& e)
 				{
-					m_Stopped = true;
+					m_Stopped.store(true);
 					ServiceLocator::GetInstance().GetLogger()->Error(e.Message());
 				}
 				catch (const RuntimeException& e)
@@ -177,7 +179,7 @@ namespace L2Bot::Domain::Services
 		Services::OutgoingMessageBuilder m_OutgoingMessageBuilder;
 
 		Transports::TransportInterface& m_Transport;
-		bool m_Stopped = false;
+		std::atomic_bool m_Stopped = false;
 		std::thread m_ConnectingThread;
 		std::thread m_SendingThread;
 		std::thread m_ReceivingThread;

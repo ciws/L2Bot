@@ -60,6 +60,12 @@ public:
 		return m_Pipe.IsConnected();
 	}
 
+	void Stop() override
+	{
+		m_ConnectionPipe.RequestStop();
+		m_Pipe.RequestStop();
+	}
+
 	NamedPipeTransport(const std::wstring& pipeName) :
 		m_PipeName(pipeName)
 	{

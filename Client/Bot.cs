@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Client.Application.ViewModels;
 using Client.Domain.Events;
@@ -12,13 +13,14 @@ using Client.Domain.Parsers;
 using Client.Domain.Service;
 using Client.Domain.Transports;
 using Microsoft.Extensions.DependencyInjection;
+using System.Windows;
 
 namespace Client
 {
     public class Bot
     {
-        [DllImport("kernel32.dll", EntryPoint = "LoadLibrary", SetLastError = true)]
-        static extern int LoadLibrary([MarshalAs(UnmanagedType.LPStr)] string lpLibFileName);
+        [DllImport("kernel32.dll", EntryPoint = "LoadLibraryW", CharSet = CharSet.Unicode, SetLastError = true)]
+        static extern IntPtr LoadLibrary(string lpLibFileName);
 
         private readonly TransportInterface transport;
         private readonly MessageParserInterface messageParser;
@@ -26,6 +28,9 @@ namespace Client
         private readonly EventBusInterface eventBus;
         private readonly IServiceProvider serviceProvider;
         private readonly string dllName;
+        private CancellationTokenSource? cancellationTokenSource;
+        private Task? workerTask;
+        private bool handlersSubscribed;
 
         public Bot(
             IServiceProvider serviceProvider,
@@ -40,27 +45,48 @@ namespace Client
             this.dllName = dllName;
         }
 
-        public async void StartAsync()
+        public Task StartAsync(CancellationToken cancellationToken = default)
         {
-            int hDll = LoadLibrary(dllName);
-
-            if (hDll == 0)
+            if (workerTask != null && !workerTask.IsCompleted)
             {
-                throw new Exception("Unable to load library " + dllName + ": " + Marshal.GetLastWin32Error().ToString());
+                return workerTask;
             }
 
-            Debug.WriteLine(dllName + " loaded\n");
-            transport.Message += OnMessage;
+            cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            workerTask = RunAsync(cancellationTokenSource.Token);
+            return workerTask;
+        }
 
-            SubscribeAllHandlers();
-
-            await transport.ConnectAsync();
-            await transport.SendAsync("invalidate");
-            while (true)
+        public async Task StopAsync()
+        {
+            if (cancellationTokenSource == null)
             {
-                await transport.StartReceiveAsync();
-                await transport.ConnectAsync();
+                return;
             }
+
+            cancellationTokenSource.Cancel();
+
+            if (workerTask != null)
+            {
+                try
+                {
+                    await workerTask;
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            }
+
+            transport.Message -= OnMessage;
+
+            if (transport is IDisposable disposableTransport)
+            {
+                disposableTransport.Dispose();
+            }
+
+            cancellationTokenSource.Dispose();
+            cancellationTokenSource = null;
+            workerTask = null;
         }
 
         private void SubscribeAllHandlers()
@@ -97,6 +123,17 @@ namespace Client
 
         private void OnMessage(string args)
         {
+            if (System.Windows.Application.Current?.Dispatcher != null)
+            {
+                _ = System.Windows.Application.Current.Dispatcher.InvokeAsync(() => ProcessMessage(args));
+                return;
+            }
+
+            ProcessMessage(args);
+        }
+
+        private void ProcessMessage(string args)
+        {
             try
             {
                 var message = messageParser.Parse(args);
@@ -113,6 +150,49 @@ namespace Client
             catch (Domain.Exception.ParserException)
             {
                 Debug.WriteLine("Unable to parse message: " + args);
+            }
+        }
+
+        private async Task RunAsync(CancellationToken cancellationToken)
+        {
+            IntPtr hDll = LoadLibrary(dllName);
+            if (hDll == IntPtr.Zero)
+            {
+                throw new Exception("Unable to load library " + dllName + ": " + Marshal.GetLastWin32Error().ToString());
+            }
+
+            Debug.WriteLine(dllName + " loaded\n");
+            transport.Message += OnMessage;
+
+            if (!handlersSubscribed)
+            {
+                SubscribeAllHandlers();
+                handlersSubscribed = true;
+            }
+
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    await transport.ConnectAsync(cancellationToken);
+                    if (!transport.IsConnected())
+                    {
+                        await Task.Delay(500, cancellationToken);
+                        continue;
+                    }
+
+                    await transport.SendAsync("invalidate", cancellationToken);
+                    await transport.StartReceiveAsync(cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine("Transport loop exception: " + ex);
+                    await Task.Delay(1000, cancellationToken);
+                }
             }
         }
     }

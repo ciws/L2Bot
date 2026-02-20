@@ -183,7 +183,10 @@ namespace Client.Domain.Service
             var message = outgoingMessageBuilder.Build(
                 new OutgoingMessage<T>(type, content)
             );
-            transport.SendAsync(message);
+            _ = transport.SendAsync(message).ContinueWith(
+                t => Debug.WriteLine("Send failed: " + t.Exception?.GetBaseException().Message),
+                TaskContinuationOptions.OnlyOnFaulted
+            );
             Debug.WriteLine(message);
         }
 
