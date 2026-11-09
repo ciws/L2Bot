@@ -44,15 +44,15 @@ jobs:
       - name: Assemble release package
         shell: pwsh
         run: |
-          $out = "artifacts\L2Bot2.0"
+          $out = "artifacts\L2Bot"
           New-Item -ItemType Directory -Force $out | Out-Null
           Copy-Item "Release\bin\*" $out -Recurse
-          Compress-Archive -Path "$out\*" -DestinationPath "artifacts\L2Bot2.0-win-x86.zip"
+          Compress-Archive -Path "$out\*" -DestinationPath "artifacts\L2Bot-win-x86.zip"
 
       - name: Verify package contents
         shell: pwsh
         run: |
-          $out = "artifacts\L2Bot2.0"
+          $out = "artifacts\L2Bot"
           $required = @("Client.exe", "L2BotDll.dll", "L2JGeoDataPathFinder.dll", "config.json", "Assets\geodata\22_22.l2j")
           foreach ($f in $required) {
             if (-not (Test-Path (Join-Path $out $f))) { throw "Missing in package: $f" }
@@ -64,5 +64,5 @@ jobs:
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/L2Bot2.0-win-x86.zip
+          files: artifacts/L2Bot-win-x86.zip
           generate_release_notes: true

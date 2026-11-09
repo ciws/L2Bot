@@ -4,7 +4,7 @@
 
 **Yet another ingame bot for Lineage 2 (Interlude)**
 
-[![Release](https://img.shields.io/github/v/release/ciws/L2Bot2.0)](https://github.com/ciws/L2Bot2.0/releases/latest)
+[![Release](https://img.shields.io/github/v/release/ciws/L2Bot)](https://github.com/ciws/L2Bot/releases/latest)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue)](#)
 [![Client](https://img.shields.io/badge/client-.NET%206%20WPF-purple)](#)
 [![Core](https://img.shields.io/badge/core-C%2B%2B-orange)](#)
@@ -51,7 +51,7 @@ Pathfinding is powered by [L2jGeodataPathFinder](https://github.com/k0t9i/L2jGeo
 
 ### 🚀 Quick start
 
-**Just want to run it?** Grab the ready-made build: 📥 [L2Bot2.0-win-x86.zip](https://github.com/ciws/L2Bot2.0/releases/latest)
+**Just want to run it?** Grab the ready-made build: 📥 [L2Bot2.0-win-x86.zip](https://github.com/ciws/L2Bot/releases/latest)
 
 **Want to build from source?** Full guide: 📖 [docs/en/SETUP.md](docs/en/SETUP.md) — requirements, geodata, building `L2JGeoDataPathFinder.dll` (x86) and `L2BotDll.dll` (Win32), first run.
 
@@ -101,7 +101,7 @@ L2Bot 2.0 — внутриигровой бот для Lineage 2 Interlude: на
 
 ### 🚀 Быстрый старт
 
-**Просто запустить?** Бери готовую сборку: 📥 [L2Bot2.0-win-x86.zip](https://github.com/ciws/L2Bot2.0/releases/latest)
+**Просто запустить?** Бери готовую сборку: 📥 [L2Bot2.0-win-x86.zip](https://github.com/ciws/L2Bot/releases/latest)
 
 **Собрать из исходников?** Полная инструкция: 📖 [docs/ru/SETUP.md](docs/ru/SETUP.md) — требования, геодата, сборка `L2JGeoDataPathFinder.dll` (x86) и `L2BotDll.dll` (Win32), первый запуск.
 
