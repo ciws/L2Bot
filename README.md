@@ -1,12 +1,16 @@
 # L2Bot 2.0
 
-**[Русская версия](README.ru.md)**
+**[English](#english)** | **[Русский](#русский)**
+
+---
+
+## English
 
 Yet another ingame bot for Lineage 2 (Interlude).
 
 ![L2Bot 2.0](https://github.com/k0t9i/L2Bot2.0/assets/7733997/8b4356b0-f362-4ba8-8ca2-8c5cb949d873)
 
-## Project components
+### Project components
 
 #### L2BotCore (C++)
 [The bot framework](L2BotCore). Its realization can be an ingame bot, a radar etc.
@@ -20,22 +24,64 @@ Yet another ingame bot for Lineage 2 (Interlude).
 #### Client (C#, WPF, .NET 6)
 [Client application](Client) with a world map, entity panels and pathfinding. Work in progress.
 
-## Intercommunications
+### Intercommunications
 
 Communication between the client and the injected code occurs through a named pipe (`PipeL2Bot`) with JSON messages.
 
-## Pathfinding & geodata
+### Pathfinding & geodata
 
 Pathfinding is done using [L2jGeodataPathFinder](https://github.com/k0t9i/L2jGeodataPathFinder) — a native DLL that searches paths (A* with post smoothing) over geodata in L2J format (`XX_YY.l2j` files).
 
-Geodata is **not stored in this repository** (~545 MB). The client downloads it automatically on the first startup from the public [LGK-Games/Geodata](https://github.com/LGK-Games/Geodata) repository — a progress window is shown, and interrupted downloads resume on the next run. See [docs/SETUP.md](docs/SETUP.md) for a manual download option.
+Geodata is **not stored in this repository** (~545 MB). The client downloads it automatically on the first startup from the public [LGK-Games/Geodata](https://github.com/LGK-Games/Geodata) repository — a progress window is shown, and interrupted downloads resume on the next run. See [docs/en/SETUP.md](docs/en/SETUP.md) for a manual download option.
 
 ![Pathfinding](https://github.com/k0t9i/L2Bot2.0/assets/7733997/104e5ff2-7435-4def-be5c-3223f02e37c5)
 
-## Build & run
+### Build & run
 
-Windows only. See **[docs/SETUP.md](docs/SETUP.md)** for the full guide: requirements, geodata, building `L2JGeoDataPathFinder.dll` (x86) and `L2BotDll.dll` (Win32), and the first run.
+Windows only. Full guide: **[docs/en/SETUP.md](docs/en/SETUP.md)** — requirements, geodata, building `L2JGeoDataPathFinder.dll` (x86) and `L2BotDll.dll` (Win32), first run.
 
-## License
+### License
+
+[MIT](LICENSE)
+
+---
+
+## Русский
+
+Ещё один внутриигровой бот для Lineage 2 (хроники Interlude).
+
+![L2Bot 2.0](https://github.com/k0t9i/L2Bot2.0/assets/7733997/8b4356b0-f362-4ba8-8ca2-8c5cb949d873)
+
+### Состав проекта
+
+#### L2BotCore (C++)
+[Фреймворк бота](L2BotCore). На его основе можно реализовать внутриигрового бота, радар и т.д.
+
+#### L2BotDll (C++)
+[Инжектируемая DLL](L2BotDll) с реализацией фреймворка для Lineage 2 Interlude. Загружается клиентом и через Windows-хук `WH_CALLWNDPROC` попадает в процесс игры, активируясь только внутри процесса Lineage 2.
+
+#### InjectionLibrary (C++)
+[Вспомогательная библиотека](InjectionLibrary) для инжекции кода (хуки, трамплины, работа с процессами).
+
+#### Client (C#, WPF, .NET 6)
+[Клиентское приложение](Client) с картой мира, панелями сущностей и поиском пути. В разработке.
+
+### Взаимодействие компонентов
+
+Клиент и инжектированный код общаются через именованный канал (`PipeL2Bot`) сообщениями в формате JSON.
+
+### Поиск пути и геодата
+
+Поиск пути выполняет [L2jGeodataPathFinder](https://github.com/k0t9i/L2jGeodataPathFinder) — нативная DLL, строящая маршрут (A* с пост-сглаживанием) по геодате в формате L2J (файлы `XX_YY.l2j`).
+
+Геодата **не хранится в этом репозитории** (~545 МБ). При первом запуске клиент сам скачивает её из публичного репозитория [LGK-Games/Geodata](https://github.com/LGK-Games/Geodata) — отображается окно с прогрессом, а прерванная загрузка продолжится при следующем запуске. Ручное скачивание описано в [docs/ru/SETUP.md](docs/ru/SETUP.md).
+
+![Поиск пути](https://github.com/k0t9i/L2Bot2.0/assets/7733997/104e5ff2-7435-4def-be5c-3223f02e37c5)
+
+### Сборка и запуск
+
+Только Windows. Полная инструкция: **[docs/ru/SETUP.md](docs/ru/SETUP.md)** — требования, геодата, сборка `L2JGeoDataPathFinder.dll` (x86) и `L2BotDll.dll` (Win32), первый запуск.
+
+### Лицензия
 
 [MIT](LICENSE)
