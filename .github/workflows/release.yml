@@ -33,7 +33,7 @@ jobs:
         run: msbuild pathfinder\L2jGeodataPathFinder.sln /t:L2jGeodataPathFinder /p:Configuration=Release /p:Platform=x86 /m
 
       - name: Copy pathfinder DLL into the client project
-        run: copy /Y pathfinder\Release\bin\L2jGeodataPathFinder.dll Client\L2JGeoDataPathFinder.dll
+        run: Copy-Item pathfinder\Release\bin\L2jGeodataPathFinder.dll Client\L2JGeoDataPathFinder.dll -Force
 
       - name: Build injectable DLL and core (Release Win32)
         run: msbuild L2Bot.sln /p:Configuration=Release /p:Platform=x86 /t:L2BotDll /m
