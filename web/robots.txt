@@ -45,3 +45,5 @@ User-agent: Bytespider
 Allow: /
 
 Sitemap: https://ciwsbot.com/sitemap.xml
+
+# Deployed via GitHub Actions from web/ folder.
