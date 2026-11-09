@@ -60,6 +60,7 @@ Pathfinding is powered by [L2jGeodataPathFinder](https://github.com/k0t9i/L2jGeo
 ### 📚 Documentation
 
 - 📖 [Build & setup guide](docs/en/SETUP.md)
+- 🗺️ [Roadmap — 10 days](docs/en/ROADMAP.md)
 - 🔧 [Stability update notes](docs/en/GITHUB_STABILITY_UPDATE.md)
 
 ### 📄 License
@@ -110,6 +111,7 @@ L2Bot 2.0 — внутриигровой бот для Lineage 2 Interlude: на
 ### 📚 Документация
 
 - 📖 [Инструкция по сборке и запуску](docs/ru/SETUP.md)
+- 🗺️ [Дорожная карта — 10 дней](docs/ru/ROADMAP.md)
 - 🔧 [Заметки об обновлении стабильности](docs/ru/GITHUB_STABILITY_UPDATE.md)
 
 ### 📄 Лицензия
