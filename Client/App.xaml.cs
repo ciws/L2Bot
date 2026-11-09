@@ -148,6 +148,8 @@ namespace Client
 
         protected override async void OnExit(ExitEventArgs e)
         {
+            AppHost?.Services.GetService<BotEngineInterface>()?.Stop();
+
             if (bot != null)
             {
                 await bot.StopAsync();
@@ -233,7 +235,11 @@ namespace Client
                 .AddSingleton<MainViewModel>();
 
             services
-                .AddSingleton(typeof(BotEngineInterface), typeof(BotEngine));
+                .AddSingleton<BotEngineInterface>(x => new BotEngine(
+                    x.GetRequiredService<WorldHandler>(),
+                    x.GetRequiredService<AsyncPathMoverInterface>(),
+                    config.GetValue<double?>("TargetSearchRadius") ?? 1500,
+                    config.GetValue<double?>("TargetApproachDistance") ?? 80));
         }
     }
 }

@@ -35,6 +35,9 @@ jobs:
       - name: Copy pathfinder DLL into the client project
         run: Copy-Item pathfinder\Release\bin\L2jGeodataPathFinder.dll Client\L2JGeoDataPathFinder.dll -Force
 
+      - name: Test target selection and movement logic
+        run: dotnet run --project tests/BotEngine.Tests -c Release
+
       - name: Build injectable DLL and core (Release Win32)
         run: msbuild L2Bot.sln /p:Configuration=Release /p:Platform=x86 /t:L2BotDll /m
 
@@ -61,8 +64,20 @@ jobs:
           Write-Host "Geodata files in package: $geoCount"
           if ($geoCount -lt 160) { throw "Geodata incomplete: $geoCount files" }
 
+      - name: Prepare bilingual release notes
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $en = "docs/en/release-notes/$tag.md"
+          $ru = "docs/ru/release-notes/$tag.md"
+          if (-not (Test-Path $en) -or -not (Test-Path $ru)) {
+            throw "Add English and Russian release notes for $tag before tagging."
+          }
+          $body = (Get-Content $en -Raw) + "`n---`n`n" + (Get-Content $ru -Raw)
+          Set-Content -Path "artifacts/release-notes.md" -Value $body -Encoding utf8
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/L2Bot-win-x86.zip
-          generate_release_notes: true
+          body_path: artifacts/release-notes.md

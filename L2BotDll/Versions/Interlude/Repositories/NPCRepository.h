@@ -1,6 +1,9 @@
 #pragma once
 
 #include <map>
+#include <mutex>
+#include <chrono>
+#include "Domain/Events/AttackedEvent.h"
 #include <shared_mutex>
 #include "../GameStructs/NetworkHandlerWrapper.h"
 #include "Domain/Repositories/EntityRepositoryInterface.h"
@@ -19,7 +22,20 @@ namespace Interlude
 	public:
 		const std::unordered_map<std::uint32_t, std::shared_ptr<Entities::EntityInterface>> GetEntities() override
 		{
-			std::unique_lock<std::shared_timed_mutex>(m_Mutex);
+			std::unique_lock<std::shared_timed_mutex> lock(m_Mutex);
+
+			const auto now = std::chrono::steady_clock::now();
+			for (auto actor = m_Combat.begin(); actor != m_Combat.end(); )
+			{
+				for (auto opponent = actor->second.begin(); opponent != actor->second.end(); )
+				{
+					if (now - opponent->second >= std::chrono::seconds(15)) opponent = actor->second.erase(opponent);
+					else ++opponent;
+				}
+				if (actor->second.empty()) actor = m_Combat.erase(actor);
+				else ++actor;
+			}
+			const auto hero = m_NetworkHandler.GetHero();
 
 			const auto allCreatures = FindAllObjects<User*>(m_Radius, [this](float_t radius, int32_t prevId) {
 				return m_NetworkHandler.GetNextCreature(radius, prevId);
@@ -43,6 +59,17 @@ namespace Interlude
 				const auto spoilState = m_Spoiled.find(creature->objectId) == m_Spoiled.end() ? Enums::SpoilStateEnum::none : m_Spoiled[creature->objectId];
 				m_Npcs[creature->objectId]->UpdateSpoilState(spoilState);
 
+				bool fightingOther = false;
+				const auto combat = m_Combat.find(creature->objectId);
+				if (combat != m_Combat.end())
+				{
+					for (const auto& opponent : combat->second)
+					{
+						if (!hero || opponent.first != hero->objectId) fightingOther = true;
+					}
+				}
+				m_Npcs[creature->objectId]->UpdateCombatWithOther(fightingOther);
+
 				result[creature->objectId] = m_Npcs[creature->objectId];
 			}
 
@@ -51,12 +78,21 @@ namespace Interlude
 
 		void Reset() override
 		{
-			std::shared_lock<std::shared_timed_mutex>(m_Mutex);
+			std::unique_lock<std::shared_timed_mutex> lock(m_Mutex);
 			m_Npcs.clear();
+			m_Combat.clear();
+			m_Spoiled.clear();
 		}
 
 		void Init() override
 		{
+			Services::ServiceLocator::GetInstance().GetEventDispatcher()->Subscribe(Events::AttackedEvent::name, [this](const Events::Event& evt) {
+				const auto& attack = static_cast<const Events::AttackedEvent&>(evt);
+				std::unique_lock<std::shared_timed_mutex> lock(m_Mutex);
+				const auto now = std::chrono::steady_clock::now();
+				m_Combat[attack.GetAttackerId()][attack.GetTargetId()] = now;
+				m_Combat[attack.GetTargetId()][attack.GetAttackerId()] = now;
+			});
 			Services::ServiceLocator::GetInstance().GetEventDispatcher()->Subscribe(Events::SpoiledEvent::name, [this](const Events::Event& evt) {
 				OnSpoiled(evt);
 			});
@@ -77,7 +113,7 @@ namespace Interlude
 
 		void OnSpoiled(const Events::Event& evt)
 		{
-			std::shared_lock<std::shared_timed_mutex>(m_Mutex);
+			std::unique_lock<std::shared_timed_mutex> lock(m_Mutex);
 			if (evt.GetName() == Events::SpoiledEvent::name)
 			{
 				const auto casted = static_cast<const Events::SpoiledEvent&>(evt);
@@ -95,10 +131,12 @@ namespace Interlude
 
 		void OnCreatureDied(const Events::Event& evt)
 		{
-			std::shared_lock<std::shared_timed_mutex>(m_Mutex);
+			std::unique_lock<std::shared_timed_mutex> lock(m_Mutex);
 			if (evt.GetName() == Events::CreatureDiedEvent::name)
 			{
 				const auto casted = static_cast<const Events::CreatureDiedEvent&>(evt);
+				m_Combat.erase(casted.GetCreatureId());
+				for (auto& actor : m_Combat) actor.second.erase(casted.GetCreatureId());
 				if (m_Spoiled.find(casted.GetCreatureId()) != m_Spoiled.end())
 				{
 					const auto isSweepable = casted.GetCreatureInfo()[4] != 0;
@@ -115,6 +153,7 @@ namespace Interlude
 		}
 
 	private:
+		std::map<uint32_t, std::map<uint32_t, std::chrono::steady_clock::time_point>> m_Combat;
 		const NPCFactory& m_Factory;
 		std::map<uint32_t, Enums::SpoilStateEnum> m_Spoiled;
 		const NetworkHandlerWrapper& m_NetworkHandler;

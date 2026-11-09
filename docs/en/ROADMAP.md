@@ -2,7 +2,7 @@
 
 **[Русская версия](../ru/ROADMAP.md)**
 
-Goal: turn the client from a "radar with manual control" into a real bot with an autonomous farming loop. Every day ends with a meaningful commit(s) to `master`. Every push is verified by a GitHub Actions build.
+Goal: turn the client from a "radar with manual control" into a real bot with an autonomous farming loop. Every day ends with a meaningful commit(s) to `master` and a release tag with English and Russian release notes. Every push is verified by a GitHub Actions build.
 
 Legend: 🖥 C# client • 💉 C++ DLL • 🔧 infrastructure
 
@@ -18,11 +18,15 @@ Legend: 🖥 C# client • 💉 C++ DLL • 🔧 infrastructure
 - No logic yet — just the skeleton and stub transitions
 - **Commit:** `feat: bot engine state machine skeleton + start/stop ui`
 
-## Day 3 — Target selection 🖥
+## Day 3 — Target selection 🖥 ✅ (v2.1.2)
 - Find the nearest mob within radius via `WorldHandler` (filters: NPC/mob, alive, not fighting someone else)
 - Radius setting in `config.json`
 - Approach the target via `AsyncPathMover` using geodata
 - **Commit:** `feat: target selection and approach`
+- Settings: `TargetSearchRadius` (1500 world units) and `TargetApproachDistance` (80); restart the client after editing `config.json`.
+- Occupied mobs are detected from observed attack events in either direction, with a 15-second timeout since the last attack. Fights that started before observation or have no attack packets for 15 seconds may not be detected.
+- Day 3 acquires and approaches a target, then holds in `Fight` without attacking. A missing/dead/occupied target triggers a new search; Stop cancels the route.
+- Logic checks: `dotnet run --project tests/BotEngine.Tests -c Release`. Full client/DLL build runs in Windows CI; live game validation is still required.
 
 ## Day 4 — Combat 🖥
 - Attack loop until the target dies, timeouts

@@ -1,19 +1,11 @@
-﻿using Client.Application.ViewModels;
 using Client.Domain.DTO;
-using Client.Domain.Entities;
-using Client.Domain.Enums;
 using Client.Domain.Service;
 using Client.Domain.ValueObjects;
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Xml.Linq;
 
 namespace Client.Infrastructure.Service
 {
@@ -25,61 +17,112 @@ namespace Client.Infrastructure.Service
         private readonly double nodeWaitingTime;
         private readonly int nodeDistanceTolerance;
         private readonly int nextNodeDistanceTolerance;
-        private CancellationTokenSource? cancellationTokenSource;
+        private readonly object movementLock = new object();
+        private readonly SemaphoreSlim movementGate = new SemaphoreSlim(1, 1);
+        private CancellationTokenSource? activeMovement;
 
-        public ObservableCollection<PathSegment> Path { get; private set; } = new ObservableCollection<PathSegment>();
+        public ObservableCollection<PathSegment> Path { get; } = new ObservableCollection<PathSegment>();
 
-        public async Task MoveUntilReachedAsync(Vector3 location)
+        public async Task MoveUntilReachedAsync(Vector3 location, CancellationToken cancellationToken = default)
         {
-            var remainingAttempts = pathNumberOfAttempts;
-            while (!await MoveAsync(location) && remainingAttempts > 0)
+            for (var attempt = 0; attempt < Math.Max(1, pathNumberOfAttempts); attempt++)
             {
-                remainingAttempts--;
+                cancellationToken.ThrowIfCancellationRequested();
+                if (await MoveAsync(location, cancellationToken))
+                {
+                    return;
+                }
             }
         }
 
-        public async Task<bool> MoveAsync(Vector3 location)
+        public async Task<bool> MoveAsync(Vector3 location, CancellationToken cancellationToken = default)
         {
-            if (cancellationTokenSource != null)
+            using var movement = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            lock (movementLock)
             {
-                cancellationTokenSource.Cancel();
-                cancellationTokenSource.Dispose();
+                activeMovement?.Cancel();
+                activeMovement = movement;
             }
-            cancellationTokenSource = new CancellationTokenSource();
-            var cancellationToken = cancellationTokenSource.Token;
 
+            var entered = false;
+            var sentMove = false;
+            var arrived = false;
+            var hero = worldHandler.Hero;
             try
             {
-                return await Task.Run(() =>
+                await movementGate.WaitAsync(movement.Token);
+                entered = true;
+                arrived = await Task.Run(async () =>
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    Debug.WriteLine("Find path start");
-                    FindPath(location);
-                    Debug.WriteLine("Find path finish");
-
-
-                    foreach (var node in Path.ToList())
+                    var token = movement.Token;
+                    token.ThrowIfCancellationRequested();
+                    Path.Clear();
+                    if (hero == null || hero.VitalStats.IsDead || !ReferenceEquals(hero, worldHandler.Hero))
                     {
-                        worldHandler.RequestMoveToLocation(node.To);
+                        return false;
+                    }
+                    if (hero.Transform.Position.ApproximatelyEquals(location, nodeDistanceTolerance, withZ: true))
+                    {
+                        return true;
+                    }
 
-                        if (!WaitForNodeReaching(cancellationToken, node))
+                    // Native pathfinding cannot be interrupted; check cancellation before sending commands.
+                    var path = pathfinder.FindPath(hero.Transform.Position, location);
+                    token.ThrowIfCancellationRequested();
+                    if (path.Count == 0)
+                    {
+                        return false;
+                    }
+                    foreach (var segment in path) Path.Add(segment);
+
+                    foreach (var node in path)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        if (!ReferenceEquals(hero, worldHandler.Hero) || hero.VitalStats.IsDead) return false;
+                        sentMove = true;
+                        worldHandler.RequestMoveToLocation(node.To);
+                        var timer = Stopwatch.StartNew();
+                        while (!hero.Transform.Position.ApproximatelyEquals(node.To, nodeDistanceTolerance, withZ: true))
                         {
-                            return false;
+                            token.ThrowIfCancellationRequested();
+                            if (!ReferenceEquals(hero, worldHandler.Hero) || hero.VitalStats.IsDead) return false;
+                            if (hero.Transform.Velocity.Equals(Vector3.Zero)
+                                && hero.Transform.Position.ApproximatelyEquals(node.To, nextNodeDistanceTolerance, withZ: true)) break;
+                            if (timer.Elapsed.TotalSeconds >= nodeWaitingTime) return false;
+                            await Task.Delay(25, token);
                         }
                         Path.Remove(node);
                     }
-
                     return true;
-                }, cancellationToken);
+                }, movement.Token);
+                return arrived;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                return true;
+                // A newer movement request superseded this one; cancellation is not arrival.
+                return false;
+            }
+            finally
+            {
+                if (entered)
+                {
+                    if (sentMove && (!arrived || movement.IsCancellationRequested) && hero != null
+                        && ReferenceEquals(hero, worldHandler.Hero) && !hero.VitalStats.IsDead)
+                    {
+                        worldHandler.RequestMoveToLocation(hero.Transform.Position);
+                    }
+                    Path.Clear();
+                    movementGate.Release();
+                }
+                lock (movementLock)
+                {
+                    if (ReferenceEquals(activeMovement, movement)) activeMovement = null;
+                }
             }
         }
 
-        public AsyncPathMover(WorldHandler worldHandler, PathfinderInterface pathfinder, int pathNumberOfAttempts, double nodeWaitingTime, int nodeDistanceTolerance, int nextNodeDistanceTolerance)
+        public AsyncPathMover(WorldHandler worldHandler, PathfinderInterface pathfinder, int pathNumberOfAttempts,
+            double nodeWaitingTime, int nodeDistanceTolerance, int nextNodeDistanceTolerance)
         {
             this.worldHandler = worldHandler;
             this.pathfinder = pathfinder;
@@ -87,54 +130,6 @@ namespace Client.Infrastructure.Service
             this.nodeWaitingTime = nodeWaitingTime;
             this.nodeDistanceTolerance = nodeDistanceTolerance;
             this.nextNodeDistanceTolerance = nextNodeDistanceTolerance;
-        }
-
-        private void FindPath(Vector3 location)
-        {
-            var hero = worldHandler.Hero;
-
-            Path.Clear();
-            if (hero == null)
-            {
-                return;
-            }
-
-            var path = pathfinder.FindPath(hero.Transform.Position, location);
-            foreach (var segment in path)
-            {
-                Path.Add(segment);
-            }
-        }
-
-        private bool WaitForNodeReaching(CancellationToken token, PathSegment node)
-        {
-            var hero = worldHandler.Hero;
-
-            var start = DateTime.Now;
-            while (hero != null && !hero.Transform.Position.ApproximatelyEquals(node.To, nodeDistanceTolerance))
-            {
-                if (token.IsCancellationRequested)
-                {
-                    token.ThrowIfCancellationRequested();
-                }
-
-                if (hero.Transform.Velocity.Equals(Vector3.Zero))
-                {
-                    var elapsedSeconds = (DateTime.Now - start).TotalSeconds;
-                    if (hero.Transform.Position.ApproximatelyEquals(node.To, nextNodeDistanceTolerance))
-                    {
-                        break;
-                    }
-                    else if (elapsedSeconds >= nodeWaitingTime)
-                    {
-                        Path.Clear();
-                        return false;
-                    }
-                }
-                Thread.Sleep(25);
-            }
-
-            return true;
         }
     }
 }

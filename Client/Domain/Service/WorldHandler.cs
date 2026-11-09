@@ -1,4 +1,4 @@
-﻿using Client.Domain.Entities;
+using Client.Domain.Entities;
 using Client.Domain.Events;
 using Client.Domain.Parsers;
 using Client.Domain.ValueObjects;
@@ -28,6 +28,30 @@ namespace Client.Domain.Service
         EventHandlerInterface<ItemDeletedEvent>
     {
         public Hero? Hero => hero;
+
+        public bool IsAvailableTarget(NPC npc, double radius)
+        {
+            var currentHero = Hero;
+            return currentHero != null && !currentHero.VitalStats.IsDead
+                && creatures.TryGetValue(npc.Id, out var current) && ReferenceEquals(current, npc)
+                && npc.IsHostile && !npc.VitalStats.IsDead && !npc.IsInCombatWithOther
+                && currentHero.Transform.Position.HorizontalDistance(npc.Transform.Position) <= radius;
+        }
+
+        public NPC? FindNearestTarget(double radius)
+        {
+            var currentHero = Hero;
+            if (currentHero == null || currentHero.VitalStats.IsDead)
+            {
+                return null;
+            }
+
+            return creatures.Values.OfType<NPC>()
+                .Where(npc => IsAvailableTarget(npc, radius))
+                .OrderBy(npc => currentHero.Transform.Position.HorizontalSqrDistance(npc.Transform.Position))
+                .ThenBy(npc => npc.Id)
+                .FirstOrDefault();
+        }
 
         public void RequestMoveToLocation(Vector3 location)
         {
@@ -204,6 +228,10 @@ namespace Client.Domain.Service
         public void Handle(HeroDeletedEvent @event)
         {
             hero = null;
+            creatures.Clear();
+            drops.Clear();
+            skills.Clear();
+            items.Clear();
         }
 
         public void Handle(CreatureCreatedEvent @event)

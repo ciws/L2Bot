@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <!-- Link production logic so tests run without WPF or the injected game DLL. -->
+  <ItemGroup>
+    <Compile Include="../../Client/Domain/Common/ObservableObject.cs" />
+    <Compile Include="../../Client/Domain/Entities/*.cs" Exclude="../../Client/Domain/Entities/Bot.cs" />
+    <Compile Include="../../Client/Domain/ValueObjects/*.cs" />
+    <Compile Include="../../Client/Domain/Enums/*.cs" />
+    <Compile Include="../../Client/Domain/Events/*.cs" />
+    <Compile Include="../../Client/Domain/DTO/OutgoingMessage.cs" />
+    <Compile Include="../../Client/Domain/DTO/PathSegment.cs" />
+    <Compile Include="../../Client/Domain/Parsers/OutgoingMessageBuilderInterface.cs" />
+    <Compile Include="../../Client/Domain/Transports/TransportInterface.cs" />
+    <Compile Include="../../Client/Domain/Service/WorldHandler.cs" />
+    <Compile Include="../../Client/Domain/Service/PathfinderInterface.cs" />
+    <Compile Include="../../Client/Domain/Service/AsyncPathMoverInterface.cs" />
+    <Compile Include="../../Client/Domain/Service/BotEngineInterface.cs" />
+    <Compile Include="../../Client/Infrastructure/Service/AsyncPathMover.cs" />
+    <Compile Include="../../Client/Infrastructure/Service/BotEngine.cs" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
+  </ItemGroup>
+</Project>

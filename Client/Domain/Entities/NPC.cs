@@ -1,4 +1,4 @@
-﻿using Client.Domain.Common;
+using Client.Domain.Common;
 using Client.Domain.Enums;
 using Client.Domain.ValueObjects;
 using System;
@@ -15,6 +15,7 @@ namespace Client.Domain.Entities
         public uint Id { get; set; }
         public Transform Transform { get; set; }
         public bool IsHostile { get; set; }
+        public bool IsInCombatWithOther { get; set; }
         public uint NpcId { get; set; }
         public SpoilStateEnum SpoilState { get; set; }
         public FullName FullName

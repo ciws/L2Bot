@@ -21,6 +21,9 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Test target selection and movement logic
+        run: dotnet run --project tests/BotEngine.Tests -c Release
+
       - name: Build injectable DLL and core (Release Win32)
         run: msbuild L2Bot.sln /p:Configuration=Release /p:Platform=x86 /t:L2BotDll /m
 
