@@ -3,7 +3,43 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>L2Bot — ingame bot for Lineage 2 Interlude</title>
+<title>L2Bot — Open-source ingame bot for Lineage 2 Interlude with geodata pathfinding</title>
+<meta name="description" content="L2Bot is an open-source ingame bot for Lineage 2 Interlude: live world map, entity radar, chat and A* pathfinding over real L2J geodata (165 regions included). Free download for Windows.">
+<meta name="keywords" content="Lineage 2 bot, L2 bot, Interlude bot, L2J geodata, pathfinding, ingame bot, open source, L2Bot, lineage 2 interlude automation">
+<meta name="author" content="ciws">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://ciwsbot.com/">
+<link rel="alternate" hreflang="en" href="https://ciwsbot.com/">
+<link rel="alternate" hreflang="ru" href="https://ciwsbot.com/ru/">
+<link rel="alternate" hreflang="x-default" href="https://ciwsbot.com/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="L2Bot">
+<meta property="og:title" content="L2Bot — ingame bot for Lineage 2 Interlude">
+<meta property="og:description" content="Live map, entity radar and A* pathfinding over real L2J geodata. Open source, Windows, free download.">
+<meta property="og:url" content="https://ciwsbot.com/">
+<meta property="og:image" content="https://github.com/k0t9i/L2Bot2.0/assets/7733997/8b4356b0-f362-4ba8-8ca2-8c5cb949d873">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="ru_RU">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="L2Bot — ingame bot for Lineage 2 Interlude">
+<meta name="twitter:description" content="Live map, entity radar and A* pathfinding over real L2J geodata. Open source.">
+<meta name="twitter:image" content="https://github.com/k0t9i/L2Bot2.0/assets/7733997/8b4356b0-f362-4ba8-8ca2-8c5cb949d873">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "L2Bot",
+  "applicationCategory": "GameApplication",
+  "operatingSystem": "Windows",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "description": "Open-source ingame bot for Lineage 2 Interlude: live world map, entity radar, chat and A* pathfinding over real L2J geodata.",
+  "url": "https://ciwsbot.com/",
+  "downloadUrl": "https://github.com/ciws/L2Bot/releases/latest",
+  "codeRepository": "https://github.com/ciws/L2Bot",
+  "license": "https://github.com/ciws/L2Bot/blob/master/LICENSE",
+  "author": { "@type": "Person", "name": "ciws", "url": "https://github.com/ciws" }
+}
+</script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -13,9 +49,12 @@
     align-items: center; justify-content: center; text-align: center;
     padding: 24px;
   }
+  .lang { position: absolute; top: 18px; right: 22px; font-size: .95rem; }
+  .lang a { color: #8b949e; text-decoration: none; }
+  .lang a:hover { color: #58a6ff; }
   h1 { font-size: 3rem; letter-spacing: -1px; }
   h1 span { color: #58a6ff; }
-  .tagline { color: #8b949e; font-size: 1.2rem; margin: 12px 0 36px; }
+  .tagline { color: #8b949e; font-size: 1.2rem; margin: 12px 0 36px; max-width: 640px; }
   .features { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-bottom: 40px; }
   .card {
     background: #161b22; border: 1px solid #30363d; border-radius: 12px;
@@ -35,18 +74,23 @@
 </style>
 </head>
 <body>
-  <h1>🤖 L2<span>Bot</span></h1>
-  <p class="tagline">Ingame bot for Lineage 2 Interlude — map, radar, real geodata pathfinding</p>
-  <div class="features">
-    <div class="card"><b>🗺 Live map</b>World map with entities, drop and chat</div>
-    <div class="card"><b>🧭 A* pathfinding</b>Real L2J geodata, 165 regions included</div>
-    <div class="card"><b>💉 Ingame DLL</b>In-process bot core, JSON pipe control</div>
-  </div>
-  <div class="buttons">
-    <a class="btn primary" href="https://github.com/ciws/L2Bot/releases/latest">⬇ Download latest release</a>
-    <a class="btn secondary" href="https://github.com/ciws/L2Bot">GitHub</a>
-    <a class="btn secondary" href="ru/SETUP.md">Docs</a>
-  </div>
-  <footer>L2Bot — open source under MIT license</footer>
+  <nav class="lang" aria-label="Language"><a href="/ru/" hreflang="ru">🇷🇺 Русский</a></nav>
+  <header>
+    <h1>🤖 L2<span>Bot</span></h1>
+    <p class="tagline">Open-source ingame bot for Lineage 2 Interlude — live map, entity radar and real geodata pathfinding</p>
+  </header>
+  <main>
+    <section class="features" aria-label="Features">
+      <div class="card"><b>🗺 Live map</b>World map with entities, drop and chat</div>
+      <div class="card"><b>🧭 A* pathfinding</b>Real L2J geodata, 165 regions included</div>
+      <div class="card"><b>💉 Ingame DLL</b>In-process bot core, JSON pipe control</div>
+    </section>
+    <div class="buttons">
+      <a class="btn primary" href="https://github.com/ciws/L2Bot/releases/latest" rel="noopener">⬇ Download latest release</a>
+      <a class="btn secondary" href="https://github.com/ciws/L2Bot" rel="noopener">GitHub</a>
+      <a class="btn secondary" href="en/SETUP.md">Documentation</a>
+    </div>
+  </main>
+  <footer>L2Bot — open source under the MIT license</footer>
 </body>
 </html>

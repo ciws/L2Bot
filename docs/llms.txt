@@ -1,0 +1,22 @@
+# L2Bot
+
+> L2Bot is an open-source ingame bot for Lineage 2 (Interlude chronicle). A native DLL is injected into the game process; a WPF client controls it over a named pipe with JSON messages. Features: live world map, entity radar, chat, and A* pathfinding over real L2J geodata (165 regions bundled in the repository). Windows only. MIT license.
+
+> L2Bot — опенсорсный внутриигровой бот для Lineage 2 (хроники Interlude). Нативная DLL внедряется в процесс игры, WPF-клиент управляет ею через именованный канал с JSON-сообщениями. Возможности: живая карта мира, радар сущностей, чат и поиск пути A* по настоящей L2J-геодате (165 регионов в комплекте). Только Windows. Лицензия MIT.
+
+## Links
+
+- Website: https://ciwsbot.com/
+- Русская версия: https://ciwsbot.com/ru/
+- Source code: https://github.com/ciws/L2Bot
+- Latest release (Windows x86): https://github.com/ciws/L2Bot/releases/latest
+- Setup guide (EN): https://ciwsbot.com/en/SETUP.html
+- Инструкция (RU): https://ciwsbot.com/ru/SETUP.html
+- Roadmap: https://ciwsbot.com/en/ROADMAP.html
+
+## Tech stack
+
+- Bot core: C++ (framework, injectable DLL, injection library)
+- Client: C#, WPF, .NET 8, x86
+- Pathfinding: L2jGeodataPathFinder (A* with post smoothing over L2J geodata)
+- Interprocess: named pipe `PipeL2Bot`, JSON messages
