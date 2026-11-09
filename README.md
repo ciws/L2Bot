@@ -32,7 +32,7 @@ Communication between the client and the injected code occurs through a named pi
 
 Pathfinding is done using [L2jGeodataPathFinder](https://github.com/k0t9i/L2jGeodataPathFinder) — a native DLL that searches paths (A* with post smoothing) over geodata in L2J format (`XX_YY.l2j` files).
 
-Geodata is **not stored in this repository** (~545 MB). The client downloads it automatically on the first startup from the public [LGK-Games/Geodata](https://github.com/LGK-Games/Geodata) repository — a progress window is shown, and interrupted downloads resume on the next run. See [docs/en/SETUP.md](docs/en/SETUP.md) for a manual download option.
+Geodata is **included in this repository** (`Client/Assets/geodata/`, ~545 MB, L2J format from [LGK-Games/Geodata](https://github.com/LGK-Games/Geodata)). If any geodata files are missing at startup, the client downloads them automatically — a progress window is shown, and interrupted downloads resume on the next run. See [docs/en/SETUP.md](docs/en/SETUP.md) for details.
 
 ![Pathfinding](https://github.com/k0t9i/L2Bot2.0/assets/7733997/104e5ff2-7435-4def-be5c-3223f02e37c5)
 
@@ -74,7 +74,7 @@ Windows only. Full guide: **[docs/en/SETUP.md](docs/en/SETUP.md)** — requireme
 
 Поиск пути выполняет [L2jGeodataPathFinder](https://github.com/k0t9i/L2jGeodataPathFinder) — нативная DLL, строящая маршрут (A* с пост-сглаживанием) по геодате в формате L2J (файлы `XX_YY.l2j`).
 
-Геодата **не хранится в этом репозитории** (~545 МБ). При первом запуске клиент сам скачивает её из публичного репозитория [LGK-Games/Geodata](https://github.com/LGK-Games/Geodata) — отображается окно с прогрессом, а прерванная загрузка продолжится при следующем запуске. Ручное скачивание описано в [docs/ru/SETUP.md](docs/ru/SETUP.md).
+Геодата **включена в этот репозиторий** (`Client/Assets/geodata/`, ~545 МБ, формат L2J из [LGK-Games/Geodata](https://github.com/LGK-Games/Geodata)). Если при запуске каких-то файлов геодаты не хватает, клиент скачивает их автоматически — отображается окно с прогрессом, а прерванная загрузка продолжится при следующем запуске. Подробности в [docs/ru/SETUP.md](docs/ru/SETUP.md).
 
 ![Поиск пути](https://github.com/k0t9i/L2Bot2.0/assets/7733997/104e5ff2-7435-4def-be5c-3223f02e37c5)
 

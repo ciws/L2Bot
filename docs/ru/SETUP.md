@@ -22,18 +22,9 @@
 
 ## Шаг 1. Геодата
 
-Геодата **не хранится в git** (`Client/Assets/geodata/` в `.gitignore`, ~545 МБ). При первом запуске клиент сам проверит её наличие и скачает недостающие файлы из публичного репозитория [LGK-Games/Geodata](https://github.com/LGK-Games/Geodata) — появится окно с прогрессом. Отмена закрывает приложение (без геодаты pathfinding не работает).
+Геодата **включена в репозиторий** (`Client/Assets/geodata/`, ~545 МБ, формат L2J из [LGK-Games/Geodata](https://github.com/LGK-Games/Geodata)): 165 регионов `XX_YY.l2j` + `geo_index.txt`. После `git clone` она уже на месте, а `Client.csproj` копирует её в output.
 
-Если хочешь скачать вручную (например, заранее, по медленному каналу):
-
-```bat
-git clone --depth 1 --filter=blob:none --sparse https://github.com/LGK-Games/Geodata.git %TEMP%\l2geo
-cd %TEMP%\l2geo
-git sparse-checkout set INTERLUDE/Geodata2/geodata
-xcopy INTERLUDE\Geodata2\geodata\* <путь к репозиторию>\Client\Assets\geodata\
-```
-
-Формат — L2J (`XX_YY.l2j`), 165 регионов + `geo_index.txt`. Именно этот формат читает `L2JGeoDataPathFinder.dll`.
+Если при запуске каких-то файлов не хватает (удалены, неполный клон), клиент сам докачает их из того же репозитория — появится окно с прогрессом. Отмена закрывает приложение (без геодаты pathfinding не работает). Это именно тот формат, который читает `L2JGeoDataPathFinder.dll`.
 
 ## Шаг 2. Сборка L2JGeoDataPathFinder.dll
 

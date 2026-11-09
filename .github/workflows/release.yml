@@ -1,0 +1,69 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout L2Bot2.0
+        uses: actions/checkout@v4
+
+      - name: Checkout L2jGeodataPathFinder
+        uses: actions/checkout@v4
+        with:
+          repository: k0t9i/L2jGeodataPathFinder
+          path: pathfinder
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup .NET 6
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "6.0.x"
+
+      - name: Build geodata pathfinder (Release x86)
+        run: msbuild pathfinder\L2jGeodataPathFinder.sln /p:Configuration=Release /p:Platform=x86 /m
+
+      - name: Copy pathfinder DLL into the client project
+        run: copy /Y pathfinder\Release\bin\L2jGeodataPathFinder.dll Client\L2JGeoDataPathFinder.dll
+
+      - name: Build injectable DLL and core (Release Win32)
+        run: msbuild L2Bot.sln /p:Configuration=Release /p:Platform=x86 /t:L2BotDll /m
+
+      - name: Build WPF client (Release)
+        run: dotnet build Client\Client.csproj -c Release
+
+      - name: Assemble release package
+        shell: pwsh
+        run: |
+          $out = "artifacts\L2Bot2.0"
+          New-Item -ItemType Directory -Force $out | Out-Null
+          Copy-Item "Client\bin\Release\net6.0-windows\*" $out -Recurse
+          Copy-Item "Release\bin\L2BotDll.dll" $out
+          Compress-Archive -Path "$out\*" -DestinationPath "artifacts\L2Bot2.0-win-x86.zip"
+
+      - name: Verify package contents
+        shell: pwsh
+        run: |
+          $out = "artifacts\L2Bot2.0"
+          $required = @("Client.exe", "L2BotDll.dll", "L2JGeoDataPathFinder.dll", "config.json", "Assets\geodata\22_22.l2j")
+          foreach ($f in $required) {
+            if (-not (Test-Path (Join-Path $out $f))) { throw "Missing in package: $f" }
+          }
+          $geoCount = (Get-ChildItem "$out\Assets\geodata\*.l2j").Count
+          Write-Host "Geodata files in package: $geoCount"
+          if ($geoCount -lt 160) { throw "Geodata incomplete: $geoCount files" }
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/L2Bot2.0-win-x86.zip
+          generate_release_notes: true

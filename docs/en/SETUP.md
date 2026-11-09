@@ -22,18 +22,9 @@ The client and the injected code communicate over the named pipe `PipeL2Bot` usi
 
 ## Step 1. Geodata
 
-Geodata is **not stored in git** (`Client/Assets/geodata/` is in `.gitignore`, ~545 MB). On the first startup the client checks for geodata and downloads missing files automatically from the public [LGK-Games/Geodata](https://github.com/LGK-Games/Geodata) repository — a progress window is shown. Cancelling closes the application (pathfinding does not work without geodata).
+Geodata is **included in the repository** (`Client/Assets/geodata/`, ~545 MB, L2J format from [LGK-Games/Geodata](https://github.com/LGK-Games/Geodata)): 165 regions `XX_YY.l2j` + `geo_index.txt`. After a `git clone` it is already in place and `Client.csproj` copies it to the output.
 
-To download manually in advance (e.g. over a slow connection):
-
-```bat
-git clone --depth 1 --filter=blob:none --sparse https://github.com/LGK-Games/Geodata.git %TEMP%\l2geo
-cd %TEMP%\l2geo
-git sparse-checkout set INTERLUDE/Geodata2/geodata
-xcopy INTERLUDE\Geodata2\geodata\* <repo path>\Client\Assets\geodata\
-```
-
-Format: L2J (`XX_YY.l2j`), 165 regions + `geo_index.txt`. This is exactly the format `L2JGeoDataPathFinder.dll` reads.
+If some files are missing at startup (deleted, incomplete clone), the client downloads them automatically from the same repository — a progress window is shown. Cancelling closes the application (pathfinding does not work without geodata). This is exactly the format `L2JGeoDataPathFinder.dll` reads.
 
 ## Step 2. Building L2JGeoDataPathFinder.dll
 
