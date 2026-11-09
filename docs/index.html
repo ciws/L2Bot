@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L2Bot — ingame bot for Lineage 2 Interlude</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+    background: #0d1117; color: #e6edf3;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    padding: 24px;
+  }
+  h1 { font-size: 3rem; letter-spacing: -1px; }
+  h1 span { color: #58a6ff; }
+  .tagline { color: #8b949e; font-size: 1.2rem; margin: 12px 0 36px; }
+  .features { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-bottom: 40px; }
+  .card {
+    background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+    padding: 18px 22px; width: 230px; font-size: .95rem; color: #c9d1d9;
+  }
+  .card b { display: block; margin-bottom: 6px; color: #e6edf3; }
+  .buttons { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+  a.btn {
+    text-decoration: none; font-weight: 600; padding: 14px 28px;
+    border-radius: 10px; font-size: 1.05rem; transition: .15s;
+  }
+  a.primary { background: #238636; color: #fff; }
+  a.primary:hover { background: #2ea043; }
+  a.secondary { background: #21262d; color: #e6edf3; border: 1px solid #30363d; }
+  a.secondary:hover { border-color: #8b949e; }
+  footer { margin-top: 56px; color: #484f58; font-size: .85rem; }
+</style>
+</head>
+<body>
+  <h1>🤖 L2<span>Bot</span></h1>
+  <p class="tagline">Ingame bot for Lineage 2 Interlude — map, radar, real geodata pathfinding</p>
+  <div class="features">
+    <div class="card"><b>🗺 Live map</b>World map with entities, drop and chat</div>
+    <div class="card"><b>🧭 A* pathfinding</b>Real L2J geodata, 165 regions included</div>
+    <div class="card"><b>💉 Ingame DLL</b>In-process bot core, JSON pipe control</div>
+  </div>
+  <div class="buttons">
+    <a class="btn primary" href="https://github.com/ciws/L2Bot/releases/latest">⬇ Download latest release</a>
+    <a class="btn secondary" href="https://github.com/ciws/L2Bot">GitHub</a>
+    <a class="btn secondary" href="ru/SETUP.md">Docs</a>
+  </div>
+  <footer>L2Bot — open source under MIT license</footer>
+</body>
+</html>
