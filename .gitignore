@@ -361,5 +361,3 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
-# Geodata (545 MB, downloaded separately - see docs)
-Client/Assets/geodata/
