@@ -46,8 +46,7 @@ jobs:
         run: |
           $out = "artifacts\L2Bot2.0"
           New-Item -ItemType Directory -Force $out | Out-Null
-          Copy-Item "Client\bin\Release\net6.0-windows\*" $out -Recurse
-          Copy-Item "Release\bin\L2BotDll.dll" $out
+          Copy-Item "Release\bin\*" $out -Recurse
           Compress-Archive -Path "$out\*" -DestinationPath "artifacts\L2Bot2.0-win-x86.zip"
 
       - name: Verify package contents
