@@ -21,8 +21,16 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
-      - name: Test target selection and movement logic
-        run: dotnet run --project tests/BotEngine.Tests -c Release
+      - name: Build native regression checks
+        run: |
+          cmake -S tests/Native.Tests -B artifacts/native-tests -A Win32
+          cmake --build artifacts/native-tests --config Release
+
+      - name: Test native serialization and state
+        run: artifacts/native-tests/Release/NativeTests.exe
+
+      - name: Test engine and cross-language pipe protocol
+        run: dotnet run --project tests/BotEngine.Tests -c Release -- "${{ github.workspace }}/artifacts/native-tests/Release/NativeTests.exe"
 
       - name: Build injectable DLL and core (Release Win32)
         run: msbuild L2Bot.sln /p:Configuration=Release /p:Platform=x86 /t:L2BotDll /m

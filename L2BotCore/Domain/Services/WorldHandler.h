@@ -4,7 +4,9 @@
 #include <thread>
 #include <memory>
 #include <atomic>
-#include <Windows.h>
+#include <mutex>
+#include <chrono>
+#include "WorldState.h"
 #include "../Serializers/SerializerInterface.h"
 #include "../Repositories/EntityRepositoryInterface.h"
 #include "../Transports/TransportInterface.h"
@@ -35,6 +37,7 @@ namespace L2Bot::Domain::Services
 
 		void Start()
 		{
+			m_Stopped = false;
 			for (const auto& kvp : m_Repositories)
 			{
 				kvp.second.Init();
@@ -71,14 +74,12 @@ namespace L2Bot::Domain::Services
 			while (!m_Stopped.load())
 			{
 				try {
-					const auto& messages = GetOutgoingMessages();
-
-					if (m_Transport.IsConnected())
+					if (m_ClientReady && m_SnapshotReady && m_Transport.IsConnected())
 					{
-						for (const auto& message : messages)
+						for (const auto& message : GetOutgoingMessages())
 						{
 							m_Transport.Send(
-								m_Serializer.Serialize(message)
+								message
 							);
 						}
 					}
@@ -102,10 +103,11 @@ namespace L2Bot::Domain::Services
 			while (!m_Stopped.load())
 			{
 				try {
-					if (m_Transport.IsConnected())
+					if (m_ClientReady && m_Transport.IsConnected())
 					{
 						const auto& message = m_Transport.Receive();
 						ServiceLocator::GetInstance().GetLogger()->Info(L"received message from client: {}", message);
+						std::lock_guard<std::recursive_mutex> guard(WorldStateMutex());
 						const auto messageType = m_IncomingMessageProcessor.Process(message);
 
 						if (messageType == Serializers::IncomingMessage::Type::invalidate) {
@@ -133,7 +135,14 @@ namespace L2Bot::Domain::Services
 				try {
 					if (!m_Transport.IsConnected())
 					{
-						m_Transport.Connect();
+						m_ClientReady = false;
+                        m_SnapshotReady = false;
+						if (m_Transport.Connect())
+						{
+							std::lock_guard<std::recursive_mutex> guard(WorldStateMutex());
+							m_OutgoingMessageBuilder.Reset();
+							m_ClientReady = true;
+						}
 					}
 					std::this_thread::sleep_for(std::chrono::milliseconds(50));
 				}
@@ -149,27 +158,31 @@ namespace L2Bot::Domain::Services
 			}
 		}
 
-		const std::vector<std::vector<Serializers::Node>> GetOutgoingMessages()
+		const std::vector<std::wstring> GetOutgoingMessages()
 		{
-			std::vector<std::vector<Serializers::Node>> result;
+			std::lock_guard<std::recursive_mutex> guard(WorldStateMutex());
+			std::vector<std::wstring> result;
 
-			for (const auto& kvp : m_Repositories)
-			{
-				auto& entities = kvp.second.GetEntities();
-
-				const auto& messages = m_OutgoingMessageBuilder.Build(kvp.first, entities);
-				result.insert(result.end(), messages.begin(), messages.end());
-			}
+			// The client needs its hero before creating view models for other entities.
+			const auto append = [this, &result](const auto& entry) {
+				const auto entities = entry.second.GetEntities();
+				for (const auto& message : m_OutgoingMessageBuilder.Build(entry.first, entities))
+					result.push_back(m_Serializer.Serialize(message));
+			};
+			const auto hero = m_Repositories.find(L"hero");
+			if (hero != m_Repositories.end()) append(*hero);
+			for (const auto& entry : m_Repositories)
+				if (entry.first != L"hero") append(entry);
 
 			return result;
 		}
 
 		void Invalidate()
 		{
-			for (const auto& kvp : m_Repositories)
-			{
-				kvp.second.Reset();
-			}
+			// Keep event-driven skills/items/effects; only force a full snapshot.
+			std::lock_guard<std::recursive_mutex> guard(WorldStateMutex());
+			m_OutgoingMessageBuilder.Reset();
+            m_SnapshotReady = true;
 		}
 
 	private:
@@ -180,6 +193,8 @@ namespace L2Bot::Domain::Services
 
 		Transports::TransportInterface& m_Transport;
 		std::atomic_bool m_Stopped = false;
+		std::atomic_bool m_ClientReady = false;
+        std::atomic_bool m_SnapshotReady = false;
 		std::thread m_ConnectingThread;
 		std::thread m_SendingThread;
 		std::thread m_ReceivingThread;

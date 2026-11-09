@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -28,6 +28,12 @@ namespace Client.Domain.Service
                 {
                     throw new ArgumentNullException(nameof(entity));
                 }
+                if (entities.TryGetValue(baseEntity.Id, out var existing))
+                {
+                    factory.Update(existing, content);
+                    OnUpdate(existing);
+                    return;
+                }
                 entities[baseEntity.Id] = entity;
 
                 OnCreate(entity);
@@ -50,6 +56,12 @@ namespace Client.Domain.Service
                     OnDelete(entity);
                 }
             }
+        }
+
+        public void Reset()
+        {
+            foreach (var entity in entities.Values.ToArray()) OnDelete(entity);
+            entities.Clear();
         }
 
         public T? GetEntity(uint id)

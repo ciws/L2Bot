@@ -1,4 +1,4 @@
-﻿using Client.Domain.Common;
+using Client.Domain.Common;
 using Client.Domain.Entities;
 using Client.Domain.Service;
 using Client.Domain.ValueObjects;
@@ -214,6 +214,12 @@ namespace Client.Application.ViewModels
 
         private void PathMover_Path_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                dispatcher.Invoke(() => PathMover_Path_CollectionChanged(sender, e));
+                return;
+            }
             lock(pathCollectionLock)
             {
                 if (e.Action == NotifyCollectionChangedAction.Add && e.NewItems != null)
@@ -231,11 +237,12 @@ namespace Client.Application.ViewModels
                 {
                     foreach (var item in e.OldItems)
                     {
-                        Path.RemoveAt(0);
+                        if (Path.Count > 0) { Path[0].Dispose(); Path.RemoveAt(0); }
                     }
                 }
                 else if (e.Action == NotifyCollectionChangedAction.Reset)
                 {
+                    foreach (var node in Path) node.Dispose();
                     Path.Clear();
                 }
             }

@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -17,17 +17,16 @@ namespace Client.Infrastructure.Parsers.Converters
 
         public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
         {
-            var value = reader.Value;
-            if (value == null)
-            {
-                return null;
-            }
-            return value?.ToString()?.Trim('0') != "";
+            if (reader.Value is bool boolean) return boolean;
+            var text = reader.Value?.ToString();
+            if (bool.TryParse(text, out var result)) return result;
+            if (long.TryParse(text, out var numeric)) return numeric != 0;
+            throw new JsonSerializationException("Invalid boolean value: " + text);
         }
 
         public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
         {
-            writer.WriteRawValue(value == null ? null : (string)value);
+            writer.WriteValue(value);
         }
     }
 }

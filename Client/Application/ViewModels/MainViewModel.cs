@@ -20,6 +20,8 @@ namespace Client.Application.ViewModels
 {
     public class MainViewModel :
         ObservableObject,
+        EventHandlerInterface<AbnormalEffectCreatedEvent>,
+        EventHandlerInterface<AbnormalEffectDeletedEvent>,
         EventHandlerInterface<HeroCreatedEvent>,
         EventHandlerInterface<HeroDeletedEvent>,
         EventHandlerInterface<CreatureCreatedEvent>,
@@ -32,9 +34,13 @@ namespace Client.Application.ViewModels
         EventHandlerInterface<ItemCreatedEvent>,
         EventHandlerInterface<ItemDeletedEvent>
     {
+        public ObservableCollection<AbnormalEffect> AbnormalEffects { get; } = new();
+        public void Handle(AbnormalEffectCreatedEvent evt) => AbnormalEffects.Add(evt.Effect);
+        public void Handle(AbnormalEffectDeletedEvent evt) => AbnormalEffects.RemoveAll(x => x.Id == evt.Id);
+
         public void Handle(HeroCreatedEvent @event)
         {
-            Hero = new HeroSummaryInfoViewModel(@event.Hero);
+            Hero = new HeroSummaryInfoViewModel(@event.Hero, worldHandler);
             hero = @event.Hero;
             Map.Hero = hero;
             AddCreature(hero);
@@ -48,6 +54,9 @@ namespace Client.Application.ViewModels
             {
                 RemoveCreature(hero.Id);
             }
+            Creatures.ClearAndDispose(); Drops.ClearAndDispose(); Map.Creatures.ClearAndDispose(); Map.Drops.ClearAndDispose();
+            ActiveSkills.ClearAndDispose(); PassiveSkills.ClearAndDispose(); Items.ClearAndDispose(); QuestItems.ClearAndDispose(); AbnormalEffects.ClearAndDispose();
+            Hero?.Dispose();
             Hero = null;
             hero = null;
             Map.Hero = null;
@@ -88,6 +97,7 @@ namespace Client.Application.ViewModels
         public void Handle(ChatMessageCreatedEvent @event)
         {
             ChatMessages.Add(new ChatMessageViewModel(@event.Message));
+            while (ChatMessages.Count > 500) ChatMessages.RemoveAt(0);
         }
 
         public void Handle(SkillCreatedEvent @event)

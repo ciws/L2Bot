@@ -11,6 +11,7 @@ using Client.Domain.ValueObjects;
 using Client.Infrastructure.Service;
 
 await Tests.Run();
+await ProtocolChecks.Run(args);
 
 static class Tests
 {
@@ -88,6 +89,20 @@ static class Tests
         await Until(() => mover.Path.Count > 0);
         world.Handle(new HeroDeletedEvent());
         Check(!await second, "Disconnect must not count as arrival");
+        // A retrying old request must not cancel the newer request after being superseded.
+        (world, hero, transport) = World();
+        mover = new AsyncPathMover(world, pathfinder, 5, 2, 8, 16);
+        var retrying = mover.MoveUntilReachedAsync(new Vector3(500, 0, 0));
+        await Until(() => mover.Path.Count > 0);
+        using (var newerCancellation = new CancellationTokenSource())
+        {
+            var newer = mover.MoveAsync(new Vector3(600, 0, 0), newerCancellation.Token);
+            await retrying;
+            await Until(() => mover.Path.Count > 0);
+            Check(!newer.IsCompleted, "Old retry loop must not supersede the new movement");
+            newerCancellation.Cancel();
+            try { await newer; } catch (OperationCanceledException) { }
+        }
         Console.WriteLine("PASS empty path, node timeout, cancellation, supersession, disconnect");
 
         (world, hero, transport) = World();

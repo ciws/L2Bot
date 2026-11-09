@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <atomic>
 #include <format>
+#include <mutex>
 #include "Domain/Exceptions.h"
 #include "Domain/Services/ServiceLocator.h"
 
@@ -16,7 +17,8 @@ class NamedPipe
 public:
 	const bool Connect(const std::wstring& pipeName)
 	{
-		m_StopRequested = false;
+		std::scoped_lock guard(m_WriteMutex, m_ReadMutex);
+		if (m_StopRequested) return false;
 		const bool recreatePipe = m_Pipe == NULL || m_Pipe == INVALID_HANDLE_VALUE || m_PipeName != pipeName;
 		m_PipeName = pipeName;
 
@@ -90,7 +92,7 @@ public:
 			if (!overlappedResult)
 			{
 				const auto overlappedError = GetLastError();
-				if (overlappedError == ERROR_OPERATION_ABORTED || m_StopRequested)
+				if (overlappedError == ERROR_OPERATION_ABORTED || overlappedError == ERROR_BROKEN_PIPE || overlappedError == ERROR_NO_DATA || m_StopRequested)
 				{
 					m_Connected = false;
 					return false;
@@ -109,6 +111,7 @@ public:
 
 	void Send(const std::wstring& message)
 	{
+		std::lock_guard<std::mutex> guard(m_WriteMutex);
 		if (!m_Connected)
 		{
 			return;
@@ -121,6 +124,11 @@ public:
 		const auto result = WriteFile(m_Pipe, preparedMessage.c_str(), static_cast<DWORD>((preparedMessage.size() + 1) * sizeof(wchar_t)), &written, &m_WritingOverlapped);
 
 		const auto lastError = GetLastError();
+		if (!result && (lastError == ERROR_BROKEN_PIPE || lastError == ERROR_NO_DATA))
+		{
+			m_Connected = false;
+			return;
+		}
 		if (!result)
 		{
 			if (lastError == ERROR_IO_PENDING)
@@ -143,7 +151,7 @@ public:
 					if (!overlappedResult)
 					{
 						const auto overlappedError = GetLastError();
-						if (overlappedError == ERROR_OPERATION_ABORTED || m_StopRequested)
+						if (overlappedError == ERROR_OPERATION_ABORTED || overlappedError == ERROR_BROKEN_PIPE || overlappedError == ERROR_NO_DATA || m_StopRequested)
 						{
 							m_Connected = false;
 							return;
@@ -169,12 +177,13 @@ public:
 
 	const std::wstring Receive()
 	{
+		std::lock_guard<std::mutex> guard(m_ReadMutex);
 		if (!m_Connected || m_StopRequested)
 		{
 			return L"";
 		}
 
-		DWORD dwRead;
+		DWORD dwRead = 0;
 		std::unique_ptr<wchar_t[]> buffer = std::make_unique<wchar_t[]>(BUFFER_SIZE);
 		ResetEvent(m_ReadingOverlapped.hEvent);
 		const auto result = ReadFile(m_Pipe, buffer.get(), BUFFER_SIZE * sizeof(wchar_t), &dwRead, &m_ReadingOverlapped);
@@ -197,8 +206,7 @@ public:
 						throw CriticalRuntimeException(std::format(L"cannot wait for reading from the pipe {}: {}", m_PipeName, GetLastError()));
 					}
 
-					DWORD ret = 0;
-					const auto overlappedResult = GetOverlappedResult(m_Pipe, &m_ReadingOverlapped, &ret, FALSE);
+					const auto overlappedResult = GetOverlappedResult(m_Pipe, &m_ReadingOverlapped, &dwRead, FALSE);
 					if (!overlappedResult)
 					{
 						const auto overlappedError = GetLastError();
@@ -223,7 +231,7 @@ public:
 			}
 			else
 			{
-				if (lastError == ERROR_BROKEN_PIPE)
+				if (lastError == ERROR_BROKEN_PIPE || lastError == ERROR_NO_DATA)
 				{
 					m_Connected = false;
 					return L"";
@@ -233,7 +241,8 @@ public:
 			}
 		}
 
-		std::wstring message = std::wstring(buffer.get());
+		std::wstring message(buffer.get(), dwRead / sizeof(wchar_t));
+		while (!message.empty() && message.back() == L'\0') message.pop_back();
 
 		return message;
 	}
@@ -314,7 +323,9 @@ private:
 private:
 	std::wstring m_PipeName = L"";
 	HANDLE m_Pipe = NULL;
-	bool m_Connected = false;
+	std::atomic_bool m_Connected = false;
+	std::mutex m_WriteMutex;
+	std::mutex m_ReadMutex;
 	std::atomic_bool m_StopRequested = false;
 	OVERLAPPED m_ConntectingOverlapped = OVERLAPPED();
 	OVERLAPPED m_ReadingOverlapped = OVERLAPPED();

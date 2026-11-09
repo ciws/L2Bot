@@ -14,6 +14,8 @@ namespace L2Bot::Domain::Services
 	class OutgoingMessageBuilder
 	{
 	public:
+		void Reset() { m_Hashes.clear(); }
+
 		OutgoingMessageBuilder() = default;
 		virtual ~OutgoingMessageBuilder() = default;
 

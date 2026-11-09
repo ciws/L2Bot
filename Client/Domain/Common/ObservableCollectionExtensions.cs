@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -9,6 +9,12 @@ namespace Client.Domain.Common
 {
     public static class ObservableCollectionExtensions
     {
+        public static void ClearAndDispose<T>(this ObservableCollection<T> collection)
+        {
+            foreach (var item in collection) (item as IDisposable)?.Dispose();
+            collection.Clear();
+        }
+
         public static void RemoveAll<T>(this ObservableCollection<T> collection,
                                                            Func<T, bool> condition)
         {
@@ -16,6 +22,7 @@ namespace Client.Domain.Common
             {
                 if (condition(collection[i]))
                 {
+                    (collection[i] as IDisposable)?.Dispose();
                     collection.RemoveAt(i);
                 }
             }

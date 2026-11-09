@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "apihook.h"
 #include "Trampoline.h"
+#include <stdexcept>
 
 #pragma pack(push, 1)
 struct CallJmpInstr
@@ -44,15 +45,23 @@ BYTE saveOldFunction(void* proc, void* old)
 
 void* splice(void* splicedFunctionAddress, void* hookFunction)
 {
-	DWORD oldProtect;
-	VirtualProtect((DWORD*)splicedFunctionAddress, 5, PAGE_EXECUTE_READWRITE, &oldProtect);
-	void* oldFunction = malloc(255);
+    if (!splicedFunctionAddress || !hookFunction) throw std::runtime_error("Missing hook function export");
+    DWORD oldProtect;
+    void* oldFunction = VirtualAlloc(nullptr, 255, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    if (!oldFunction) throw std::runtime_error("Unable to allocate executable trampoline");
+    if (!VirtualProtect(splicedFunctionAddress, 5, PAGE_EXECUTE_READWRITE, &oldProtect))
+    {
+        VirtualFree(oldFunction, 0, MEM_RELEASE);
+        throw std::runtime_error("Unable to change hook protection");
+    }
 	*(DWORD*)oldFunction = (DWORD)splicedFunctionAddress;
 	*((BYTE*)oldFunction + 4) = saveOldFunction((DWORD*)((BYTE*)splicedFunctionAddress), (DWORD*)((BYTE*)oldFunction + 5));
 	CallJmpInstr* instr = (CallJmpInstr*)((BYTE*)splicedFunctionAddress);
 	instr->opcode = 0xe9;
 	instr->rel32 = (DWORD)hookFunction - (DWORD)splicedFunctionAddress - 5;
 	VirtualProtect((DWORD*)splicedFunctionAddress, 5, oldProtect, &oldProtect);
+    FlushInstructionCache(GetCurrentProcess(), splicedFunctionAddress, 5);
+    FlushInstructionCache(GetCurrentProcess(), oldFunction, 255);
 
 	return (DWORD*)((BYTE*)oldFunction + 5);
 }
@@ -67,7 +76,8 @@ BOOL restore(void*& oldProc)
 		CopyMemory(proc, oldProc, size);
 		recalculateRel32IfIsJump(proc, oldProc);
 		VirtualProtect(proc, size, oldProtect, &oldProtect);
-		free((DWORD*)((BYTE*)oldProc - 5));
+		FlushInstructionCache(GetCurrentProcess(), proc, size);
+        VirtualFree((BYTE*)oldProc - 5, 0, MEM_RELEASE);
 		oldProc = 0;
 		return TRUE;
 	}

@@ -45,13 +45,13 @@ L2Bot 2.0 is an ingame bot for Lineage 2 Interlude: a native DLL is injected int
 Pathfinding is powered by [L2jGeodataPathFinder](https://github.com/k0t9i/L2jGeodataPathFinder) — a native DLL running A* with post smoothing over real L2J geodata (`XX_YY.l2j`).
 
 - 📦 Geodata **ships with this repository** (`Client/Assets/geodata/`, 165 regions, ~545 MB, thanks to [LGK-Games/Geodata](https://github.com/LGK-Games/Geodata))
-- 🌐 If any geodata files are missing at startup, the client **downloads them automatically** with a progress window — interrupted downloads resume on the next run
+- 🌐 If any geodata files are missing at startup, the client **downloads them automatically** with a progress window — completed files are kept; an interrupted file is downloaded again on the next run
 
 ![Pathfinding](https://github.com/k0t9i/L2Bot2.0/assets/7733997/104e5ff2-7435-4def-be5c-3223f02e37c5)
 
 ### 🚀 Quick start
 
-**Just want to run it?** Grab the ready-made build: 📥 [L2Bot2.0-win-x86.zip](https://github.com/ciws/L2Bot/releases/latest)
+**Just want to run it?** Grab the ready-made build: 📥 [L2Bot-win-x86.zip](https://github.com/ciws/L2Bot/releases/latest)
 
 **Want to build from source?** Full guide: 📖 [docs/en/SETUP.md](docs/en/SETUP.md) — requirements, geodata, building `L2JGeoDataPathFinder.dll` (x86) and `L2BotDll.dll` (Win32), first run.
 
@@ -96,13 +96,13 @@ L2Bot 2.0 — внутриигровой бот для Lineage 2 Interlude: на
 Поиск пути выполняет [L2jGeodataPathFinder](https://github.com/k0t9i/L2jGeodataPathFinder) — нативная DLL, строящая маршрут по настоящей L2J-геодате (`XX_YY.l2j`) алгоритмом A* с пост-сглаживанием.
 
 - 📦 Геодата **включена в репозиторий** (`Client/Assets/geodata/`, 165 регионов, ~545 МБ, спасибо [LGK-Games/Geodata](https://github.com/LGK-Games/Geodata))
-- 🌐 Если каких-то файлов геодаты не хватает, клиент **скачивает их сам** — с окном прогресса, а прерванная загрузка продолжится при следующем запуске
+- 🌐 Если каких-то файлов геодаты не хватает, клиент **скачивает их сам** — с окном прогресса, готовые файлы сохраняются, а прерванный файл скачивается заново при следующем запуске
 
 ![Поиск пути](https://github.com/k0t9i/L2Bot2.0/assets/7733997/104e5ff2-7435-4def-be5c-3223f02e37c5)
 
 ### 🚀 Быстрый старт
 
-**Просто запустить?** Бери готовую сборку: 📥 [L2Bot2.0-win-x86.zip](https://github.com/ciws/L2Bot/releases/latest)
+**Просто запустить?** Бери готовую сборку: 📥 [L2Bot-win-x86.zip](https://github.com/ciws/L2Bot/releases/latest)
 
 **Собрать из исходников?** Полная инструкция: 📖 [docs/ru/SETUP.md](docs/ru/SETUP.md) — требования, геодата, сборка `L2JGeoDataPathFinder.dll` (x86) и `L2BotDll.dll` (Win32), первый запуск.
 

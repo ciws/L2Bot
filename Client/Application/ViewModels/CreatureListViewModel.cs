@@ -1,4 +1,4 @@
-﻿using Client.Application.Commands;
+using Client.Application.Commands;
 using Client.Domain.Common;
 using Client.Domain.Entities;
 using Client.Domain.Service;
@@ -12,7 +12,7 @@ using System.Windows.Input;
 
 namespace Client.Application.ViewModels
 {
-    public class CreatureListViewModel : ObservableObject
+    public class CreatureListViewModel : ObservableObject, IDisposable
     {
         public uint Id => creature.Id;
 
@@ -90,6 +90,14 @@ namespace Client.Application.ViewModels
             {
                 OnPropertyChanged("IsTarget");
             }
+        }
+
+        public void Dispose()
+        {
+            creature.PropertyChanged -= Creature_PropertyChanged;
+            creature.Transform.Position.PropertyChanged -= Position_PropertyChanged;
+            hero.Transform.Position.PropertyChanged -= HeroPosition_PropertyChanged;
+            hero.PropertyChanged -= Hero_PropertyChanged;
         }
 
         private readonly CreatureInterface creature;

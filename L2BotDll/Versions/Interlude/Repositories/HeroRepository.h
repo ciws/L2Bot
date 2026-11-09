@@ -1,4 +1,5 @@
 #pragma once
+#include "Domain/Services/WorldState.h"
 
 #include <shared_mutex>
 #include "Domain/Repositories/EntityRepositoryInterface.h"
@@ -19,7 +20,7 @@ namespace Interlude
 	public:
 		const std::unordered_map<std::uint32_t, std::shared_ptr<Entities::EntityInterface>> GetEntities() override
 		{
-			std::unique_lock<std::shared_timed_mutex>(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 
 			const auto hero = m_NetworkHandler.GetHero();
 
@@ -57,7 +58,7 @@ namespace Interlude
 
 		void Reset() override
 		{
-			std::shared_lock<std::shared_timed_mutex>(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 			m_Hero = nullptr;
 		}
 
@@ -73,7 +74,7 @@ namespace Interlude
 
 		void OnCreatureDied(const Events::Event& evt)
 		{
-			std::shared_lock<std::shared_timed_mutex>(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 			if (evt.GetName() == Events::CreatureDiedEvent::name)
 			{
 				const auto casted = static_cast<const Events::CreatureDiedEvent&>(evt);
@@ -94,7 +95,7 @@ namespace Interlude
 
 		void OnAttacked(const Events::Event& evt)
 		{
-			std::shared_lock<std::shared_timed_mutex>(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 			if (evt.GetName() == Events::AttackedEvent::name)
 			{
 				const auto casted = static_cast<const Events::AttackedEvent&>(evt);

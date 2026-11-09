@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -31,6 +31,7 @@ namespace Client
         private CancellationTokenSource? cancellationTokenSource;
         private Task? workerTask;
         private bool handlersSubscribed;
+        private IntPtr loadedDll;
 
         public Bot(
             IServiceProvider serviceProvider,
@@ -52,6 +53,7 @@ namespace Client
                 return workerTask;
             }
 
+            cancellationTokenSource?.Dispose();
             cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             workerTask = RunAsync(cancellationTokenSource.Token);
             return workerTask;
@@ -72,17 +74,11 @@ namespace Client
                 {
                     await workerTask;
                 }
-                catch (OperationCanceledException)
-                {
-                }
+                catch (OperationCanceledException) { }
+                catch (Exception ex) { Debug.WriteLine("Connection stopped after failure: " + ex.Message); }
             }
 
             transport.Message -= OnMessage;
-
-            if (transport is IDisposable disposableTransport)
-            {
-                disposableTransport.Dispose();
-            }
 
             cancellationTokenSource.Dispose();
             cancellationTokenSource = null;
@@ -103,6 +99,8 @@ namespace Client
             eventBus.Subscrbe((EventHandlerInterface<SkillDeletedEvent>)viewModel);
             eventBus.Subscrbe((EventHandlerInterface<ItemCreatedEvent>)viewModel);
             eventBus.Subscrbe((EventHandlerInterface<ItemDeletedEvent>)viewModel);
+            eventBus.Subscrbe((EventHandlerInterface<AbnormalEffectCreatedEvent>)viewModel);
+            eventBus.Subscrbe((EventHandlerInterface<AbnormalEffectDeletedEvent>)viewModel);
 
             var worldHandler = serviceProvider.GetRequiredService<WorldHandler>();
             eventBus.Subscrbe((EventHandlerInterface<HeroCreatedEvent>)worldHandler);
@@ -115,6 +113,8 @@ namespace Client
             eventBus.Subscrbe((EventHandlerInterface<SkillDeletedEvent>)worldHandler);
             eventBus.Subscrbe((EventHandlerInterface<ItemCreatedEvent>)worldHandler);
             eventBus.Subscrbe((EventHandlerInterface<ItemDeletedEvent>)worldHandler);
+            eventBus.Subscrbe((EventHandlerInterface<AbnormalEffectCreatedEvent>)worldHandler);
+            eventBus.Subscrbe((EventHandlerInterface<AbnormalEffectDeletedEvent>)worldHandler);
 
             eventBus.Subscrbe((EventHandlerInterface<TargetChangedEvent>)serviceProvider.GetRequiredService<HeroHandler>());
             eventBus.Subscrbe((EventHandlerInterface<TargetChangedEvent>)serviceProvider.GetRequiredService<NpcHandler>());
@@ -155,13 +155,14 @@ namespace Client
 
         private async Task RunAsync(CancellationToken cancellationToken)
         {
-            IntPtr hDll = LoadLibrary(dllName);
-            if (hDll == IntPtr.Zero)
+            if (loadedDll == IntPtr.Zero) loadedDll = LoadLibrary(dllName);
+            if (loadedDll == IntPtr.Zero)
             {
                 throw new Exception("Unable to load library " + dllName + ": " + Marshal.GetLastWin32Error().ToString());
             }
 
             Debug.WriteLine(dllName + " loaded\n");
+            transport.Message -= OnMessage;
             transport.Message += OnMessage;
 
             if (!handlersSubscribed)
@@ -181,7 +182,11 @@ namespace Client
                         continue;
                     }
 
-                    await transport.SendAsync("invalidate", cancellationToken);
+                    var dispatcher = System.Windows.Application.Current?.Dispatcher;
+                    if (dispatcher != null) await dispatcher.InvokeAsync(entityHandlerFactory.Reset);
+                    else entityHandlerFactory.Reset();
+                    var builder = serviceProvider.GetRequiredService<OutgoingMessageBuilderInterface>();
+                    await transport.SendAsync(builder.Build(new Domain.DTO.EmptyOutgoingMessage(Domain.Enums.OutgoingMessageTypeEnum.Invalidate)), cancellationToken);
                     await transport.StartReceiveAsync(cancellationToken);
                 }
                 catch (OperationCanceledException)

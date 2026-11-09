@@ -7,7 +7,7 @@
   </PropertyGroup>
   <!-- Link production logic so tests run without WPF or the injected game DLL. -->
   <ItemGroup>
-    <Compile Include="../../Client/Domain/Common/ObservableObject.cs" />
+    <Compile Include="../../Client/Domain/Common/*.cs" />
     <Compile Include="../../Client/Domain/Entities/*.cs" Exclude="../../Client/Domain/Entities/Bot.cs" />
     <Compile Include="../../Client/Domain/ValueObjects/*.cs" />
     <Compile Include="../../Client/Domain/Enums/*.cs" />
@@ -22,6 +22,19 @@
     <Compile Include="../../Client/Domain/Service/BotEngineInterface.cs" />
     <Compile Include="../../Client/Infrastructure/Service/AsyncPathMover.cs" />
     <Compile Include="../../Client/Infrastructure/Service/BotEngine.cs" />
+    <Compile Include="../../Client/Domain/Service/HandlerInterface.cs" />
+    <Compile Include="../../Client/Domain/Service/EntityHandler.cs" />
+    <Compile Include="../../Client/Domain/Service/AbnormalEffectHandler.cs" />
+    <Compile Include="../../Client/Domain/Factories/EntityFactoryInterface.cs" />
+    <Compile Include="../../Client/Domain/Parsers/MessageParserInterface.cs" />
+    <Compile Include="../../Client/Domain/Exception/ParserException.cs" />
+    <Compile Include="../../Client/Domain/DTO/Message.cs" />
+    <Compile Include="../../Client/Infrastructure/Factories/EntityFactory.cs" />
+    <Compile Include="../../Client/Infrastructure/Factories/ItemFactory.cs" />
+    <Compile Include="../../Client/Infrastructure/Parsers/*.cs" />
+    <Compile Include="../../Client/Infrastructure/Parsers/Objects/*.cs" />
+    <Compile Include="../../Client/Infrastructure/Parsers/Converters/*.cs" />
+    <Compile Include="../../Client/Infrastructure/Transports/NamedPipeTransport.cs" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
   </ItemGroup>
 </Project>

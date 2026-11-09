@@ -1,6 +1,8 @@
 #pragma once
+#include "Domain/Services/WorldState.h"
 
 #include <vector>
+#include <algorithm>
 #include <shared_mutex>
 #include "../Factories/ChatMessageFactory.h"
 #include "Domain/Events/ChatMessageCreatedEvent.h"
@@ -15,14 +17,14 @@ namespace Interlude
 	public:
 		const std::unordered_map<std::uint32_t, std::shared_ptr<Entities::EntityInterface>> GetEntities() override
 		{
-			std::unique_lock<std::shared_timed_mutex>(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 
 			return m_Messages;
 		}
 
 		void Reset() override
 		{
-			std::shared_lock<std::shared_timed_mutex>(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 			m_Messages.clear();
 		}
 
@@ -40,13 +42,19 @@ namespace Interlude
 
 		void OnMessageCreated(const Events::Event& evt)
 		{
-			std::shared_lock<std::shared_timed_mutex>(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 			if (evt.GetName() == Events::ChatMessageCreatedEvent::name)
 			{
 				const auto casted = static_cast<const Events::ChatMessageCreatedEvent&>(evt);
 
 				const auto message = m_Factory.Create(casted.GetChatMessage());
 				m_Messages[message->GetId()] = message;
+				if (m_Messages.size() > 500)
+				{
+					const auto oldest = std::min_element(m_Messages.begin(), m_Messages.end(),
+						[](const auto& a, const auto& b) { return a.first < b.first; });
+					m_Messages.erase(oldest);
+				}
 			}
 		}
 
@@ -56,6 +64,5 @@ namespace Interlude
 	private:
 		const ChatMessageFactory& m_Factory;
 		std::unordered_map<uint32_t, std::shared_ptr<Entities::EntityInterface>> m_Messages;
-		std::shared_timed_mutex m_Mutex;
 	};
 }

@@ -1,4 +1,5 @@
 #pragma once
+#include "Domain/Services/WorldState.h"
 
 #include <map>
 #include <mutex>
@@ -22,7 +23,7 @@ namespace Interlude
 	public:
 		const std::unordered_map<std::uint32_t, std::shared_ptr<Entities::EntityInterface>> GetEntities() override
 		{
-			std::unique_lock<std::shared_timed_mutex> lock(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 
 			const auto now = std::chrono::steady_clock::now();
 			for (auto actor = m_Combat.begin(); actor != m_Combat.end(); )
@@ -78,7 +79,7 @@ namespace Interlude
 
 		void Reset() override
 		{
-			std::unique_lock<std::shared_timed_mutex> lock(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 			m_Npcs.clear();
 			m_Combat.clear();
 			m_Spoiled.clear();
@@ -88,7 +89,8 @@ namespace Interlude
 		{
 			Services::ServiceLocator::GetInstance().GetEventDispatcher()->Subscribe(Events::AttackedEvent::name, [this](const Events::Event& evt) {
 				const auto& attack = static_cast<const Events::AttackedEvent&>(evt);
-				std::unique_lock<std::shared_timed_mutex> lock(m_Mutex);
+				std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
+				if (!attack.GetAttackerId() || !attack.GetTargetId()) return;
 				const auto now = std::chrono::steady_clock::now();
 				m_Combat[attack.GetAttackerId()][attack.GetTargetId()] = now;
 				m_Combat[attack.GetTargetId()][attack.GetAttackerId()] = now;
@@ -113,7 +115,7 @@ namespace Interlude
 
 		void OnSpoiled(const Events::Event& evt)
 		{
-			std::unique_lock<std::shared_timed_mutex> lock(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 			if (evt.GetName() == Events::SpoiledEvent::name)
 			{
 				const auto casted = static_cast<const Events::SpoiledEvent&>(evt);
@@ -131,7 +133,7 @@ namespace Interlude
 
 		void OnCreatureDied(const Events::Event& evt)
 		{
-			std::unique_lock<std::shared_timed_mutex> lock(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 			if (evt.GetName() == Events::CreatureDiedEvent::name)
 			{
 				const auto casted = static_cast<const Events::CreatureDiedEvent&>(evt);
@@ -139,7 +141,8 @@ namespace Interlude
 				for (auto& actor : m_Combat) actor.second.erase(casted.GetCreatureId());
 				if (m_Spoiled.find(casted.GetCreatureId()) != m_Spoiled.end())
 				{
-					const auto isSweepable = casted.GetCreatureInfo()[4] != 0;
+					const auto& info = casted.GetCreatureInfo();
+					const auto isSweepable = info.size() > 4 && info[4] != 0;
 					if (m_Spoiled[casted.GetCreatureId()] == Enums::SpoilStateEnum::spoiled && isSweepable)
 					{
 						m_Spoiled[casted.GetCreatureId()] = Enums::SpoilStateEnum::sweepable;
@@ -158,7 +161,6 @@ namespace Interlude
 		std::map<uint32_t, Enums::SpoilStateEnum> m_Spoiled;
 		const NetworkHandlerWrapper& m_NetworkHandler;
 		const uint16_t m_Radius = 0;
-		std::shared_timed_mutex m_Mutex;
 		std::unordered_map<uint32_t, std::shared_ptr<Entities::NPC>> m_Npcs;
 	};
 }

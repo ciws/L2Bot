@@ -50,7 +50,7 @@ cd Client
 dotnet build -c Release
 ```
 
-The output (`bin\Release\net6.0-windows\`) automatically receives: `config.json`, `Assets\icons`, `Assets\maps`, `Assets\data`, `Assets\geodata`, `L2BotDll.dll` (if placed in the project folder) and `L2JGeoDataPathFinder.dll`.
+The output (`Release\bin\`) automatically receives: `config.json`, `Assets\icons`, `Assets\maps`, `Assets\data`, `Assets\geodata`, `L2BotDll.dll` (if placed in the project folder) and `L2JGeoDataPathFinder.dll`.
 
 ## Step 5. Run
 

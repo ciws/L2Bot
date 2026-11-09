@@ -152,6 +152,18 @@
                     </TabControl>
                 </TabItem.Content>
             </TabItem>
+            <TabItem Header="Buffs">
+                <ListBox ItemsSource="{Binding AbnormalEffects}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="5" ToolTip="{Binding Description}">
+                                <TextBlock Text="{Binding Name}" FontSize="14"/>
+                                <TextBlock Text="{Binding Level, StringFormat='Level {0}'}" FontSize="11"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </TabItem>
             <TabItem>
                 <TabItem.Header>Bot</TabItem.Header>
                 <TabItem.Content>

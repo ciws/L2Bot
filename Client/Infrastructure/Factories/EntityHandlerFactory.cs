@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -39,6 +39,9 @@ namespace Client.Infrastructure.Factories
                 case MessageTypeEnum.Skill:
                     result = serviceProvider.GetService<SkillHandler>();
                     break;
+                case MessageTypeEnum.AbnormalEffect:
+                    result = serviceProvider.GetService<AbnormalEffectHandler>();
+                    break;
                 case MessageTypeEnum.Item:
                     result = serviceProvider.GetService<ItemHander>();
                     break;
@@ -50,6 +53,13 @@ namespace Client.Infrastructure.Factories
             }
 
             return result;
+        }
+
+        public void Reset()
+        {
+            foreach (var type in new[] { MessageTypeEnum.Hero, MessageTypeEnum.NPC, MessageTypeEnum.Player,
+                MessageTypeEnum.Drop, MessageTypeEnum.Skill, MessageTypeEnum.Item, MessageTypeEnum.AbnormalEffect })
+                GetHandler(type).Reset();
         }
 
         public EntityHandlerFactory(IServiceProvider serviceProvider)

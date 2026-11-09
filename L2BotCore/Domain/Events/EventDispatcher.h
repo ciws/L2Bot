@@ -4,6 +4,7 @@
 #include <functional>
 #include <unordered_map>
 #include <vector>
+#include <mutex>
 #include "Event.h"
 
 namespace L2Bot::Domain::Events
@@ -18,25 +19,23 @@ namespace L2Bot::Domain::Events
 
 		void Dispatch(const Event& evt)
 		{
-			const auto& name = evt.GetName();
-
-			if (m_Handlers.find(name) == m_Handlers.end())
+			std::vector<Delegate> handlers;
 			{
-				return;
+				std::lock_guard<std::mutex> guard(m_Mutex);
+				const auto found = m_Handlers.find(evt.GetName());
+				if (found != m_Handlers.end()) handlers = found->second;
 			}
-
-			for (const auto& handler : m_Handlers[name])
-			{
-				handler(evt);
-			}
+			for (const auto& handler : handlers) handler(evt);
 		}
 
 		void Subscribe(const std::string& eventName, const Delegate handler)
 		{
+			std::lock_guard<std::mutex> guard(m_Mutex);
 			m_Handlers[eventName].push_back(handler);
 		}
 
 	private:
 		std::unordered_map<std::string, std::vector<Delegate>> m_Handlers;
+		std::mutex m_Mutex;
 	};
 }

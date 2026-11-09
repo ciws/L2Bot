@@ -1,4 +1,4 @@
-﻿using Client.Application.Commands;
+using Client.Application.Commands;
 using Client.Application.Components;
 using Client.Domain.Common;
 using Client.Domain.Entities;
@@ -15,7 +15,7 @@ namespace Client.Application.ViewModels
     public class ItemListViewModel : ObservableObject
     {
         public uint Id => item.Id;
-        public string Name => item.Name;
+        public string Name => item.Amount > 1 ? $"{item.Name} ×{item.Amount}" : item.Name;
         public string Description => item.FullDescription;
         public string IconName => "/Assets/icons/" + item.IconName + ".png";
 
@@ -35,7 +35,12 @@ namespace Client.Application.ViewModels
             this.worldHandler = worldHandler;
             this.item = item;
 
-            //skill.PropertyChanged += Skill_PropertyChanged;
+            item.PropertyChanged += (_, _) =>
+            {
+                OnPropertyChanged(nameof(Name));
+                OnPropertyChanged(nameof(Description));
+                OnPropertyChanged(nameof(IconName));
+            };
             MouseLeftClickCommand = new RelayCommand(OnLeftMouseClick);
             MouseRightClickCommand = new RelayCommand(OnRightMouseClick);
         }

@@ -1,4 +1,4 @@
-﻿using Client.Domain.Common;
+using Client.Domain.Common;
 using Client.Domain.Entities;
 using Client.Domain.ValueObjects;
 using System;
@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace Client.Application.ViewModels
 {
-    public class TargetSummaryInfoViewModel : ObservableObject
+    public class TargetSummaryInfoViewModel : ObservableObject, IDisposable
     {
         public uint Id => creature.Id;
 
@@ -73,6 +73,14 @@ namespace Client.Application.ViewModels
             {
                 OnPropertyChanged("BriefInfo");
             }
+        }
+
+        public void Dispose()
+        {
+            creature.PropertyChanged -= Creature_PropertyChanged;
+            creature.Transform.Position.PropertyChanged -= Position_PropertyChanged;
+            creature.VitalStats.PropertyChanged -= VitalStats_PropertyChanged;
+            hero.Transform.Position.PropertyChanged -= HeroPosition_PropertyChanged;
         }
 
         private readonly CreatureInterface creature;

@@ -1,7 +1,10 @@
 #pragma once
+#include "Domain/Services/WorldState.h"
 
 #include <unordered_map>
 #include <chrono>
+#include <algorithm>
+#include <map>
 #include <shared_mutex>
 #include "Domain/Repositories/EntityRepositoryInterface.h"
 #include "../Factories/SkillFactory.h"
@@ -12,7 +15,6 @@
 #include "Domain/Events/HeroDeletedEvent.h"
 #include "Domain/Events/GameEngineTickedEvent.h"
 #include "../GameStructs/NetworkHandlerWrapper.h"
-#include "../../../Common/TimerMap.h"
 #include "Domain/Services/ServiceLocator.h"
 
 using namespace L2Bot::Domain;
@@ -24,8 +26,11 @@ namespace Interlude
 	public:
 		const std::unordered_map<std::uint32_t, std::shared_ptr<Entities::EntityInterface>> GetEntities() override
 		{
-			std::unique_lock<std::shared_timed_mutex>(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 
+			const auto now = std::chrono::steady_clock::now();
+			ExpireTimers(m_CastingUntil, now, false);
+			ExpireTimers(m_ReloadingUntil, now, true);
 			std::unordered_map<std::uint32_t, std::shared_ptr<Entities::EntityInterface>> result(m_Skills.begin(), m_Skills.end());
 			return result;
 		}
@@ -42,9 +47,9 @@ namespace Interlude
 
 		void Reset() override
 		{
-			std::shared_lock<std::shared_timed_mutex>(m_Mutex);
-			m_CastingTimers.StopAll();
-			m_ReloadingTimers.StopAll();
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
+			m_CastingUntil.clear();
+			m_ReloadingUntil.clear();
 			m_Skills.clear();
 			m_IsNewCycle = false;
 			m_NewSkills.clear();
@@ -74,7 +79,7 @@ namespace Interlude
 
 		void OnGameEngineTicked(const Events::Event& evt)
 		{
-			std::shared_lock<std::shared_timed_mutex>(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 			if (evt.GetName() == Events::GameEngineTickedEvent::name)
 			{
 				for (auto it = m_Skills.begin(); it != m_Skills.end();)
@@ -95,7 +100,7 @@ namespace Interlude
 
 		void OnHeroDeleted(const Events::Event& evt)
 		{
-			std::shared_lock<std::shared_timed_mutex>(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 			if (evt.GetName() == Events::HeroDeletedEvent::name)
 			{
 				Reset();
@@ -105,7 +110,7 @@ namespace Interlude
 		//todo need to delete skills if they are not exists in create "queue"
 		void OnSkillCreated(const Events::Event& evt)
 		{
-			std::shared_lock<std::shared_timed_mutex>(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 			if (evt.GetName() == Events::SkillCreatedEvent::name)
 			{
 				if (m_IsNewCycle)
@@ -116,6 +121,7 @@ namespace Interlude
 
 				const auto casted = static_cast<const Events::SkillCreatedEvent&>(evt);
 				const auto skillInfo = casted.GetSkillInfo();
+				if (skillInfo.size() < 3) return;
 				const auto skillId = skillInfo[2];
 
 				if (m_Skills.find(skillId) == m_Skills.end())
@@ -144,11 +150,14 @@ namespace Interlude
 		}
 		void OnSkillUsed(const Events::Event& evt)
 		{
-			std::shared_lock<std::shared_timed_mutex>(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 			if (evt.GetName() == Events::SkillUsedEvent::name)
 			{
 				const auto casted = static_cast<const Events::SkillUsedEvent&>(evt);
+				const auto hero = m_NetworkHandler.GetHero();
+				if (!hero || casted.GetCasterId() != hero->objectId) return;
 				const auto skillInfo = casted.GetSkillInfo();
+				if (skillInfo.size() < 4) return;
 				const auto skillId = skillInfo[0];
 
 				if (m_Skills.find(skillId) == m_Skills.end())
@@ -164,19 +173,14 @@ namespace Interlude
 
 				m_UsedSkillId = skill->GetId();
 
-				m_ReloadingTimers.StartTimer(skill->GetId(), skillInfo[3], [this] (uint32_t skillId) {
-					std::shared_lock<std::shared_timed_mutex>(m_Mutex);
-					m_Skills[skillId]->StopReloading();
-				});
-				m_CastingTimers.StartTimer(skill->GetId(), skillInfo[2], [this] (uint32_t skillId) {
-					std::shared_lock<std::shared_timed_mutex>(m_Mutex);
-					m_Skills[skillId]->StopCasting();
-				});
+				const auto now = std::chrono::steady_clock::now();
+				m_ReloadingUntil[skillId] = now + std::chrono::milliseconds((std::max)(0, skillInfo[3]));
+				m_CastingUntil[skillId] = now + std::chrono::milliseconds((std::max)(0, skillInfo[2]));
 			}
 		}
 		void OnSkillCancelled(const Events::Event& evt)
 		{
-			std::shared_lock<std::shared_timed_mutex>(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 			if (evt.GetName() == Events::SkillCancelledEvent::name)
 			{
 				const auto casted = static_cast<const Events::SkillCancelledEvent&>(evt);
@@ -192,7 +196,7 @@ namespace Interlude
 					}
 
 					m_Skills[m_UsedSkillId]->StopCasting();
-					m_CastingTimers.StopTimer(m_UsedSkillId);
+					m_CastingUntil.erase(m_UsedSkillId);
 
 					m_UsedSkillId = 0;
 				}
@@ -200,7 +204,7 @@ namespace Interlude
 		}
 		void OnSkillToggled(const Events::Event& evt)
 		{
-			std::shared_lock<std::shared_timed_mutex>(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 			if (evt.GetName() == Events::AbnormalEffectChangedEvent::name)
 			{
 				const auto casted = static_cast<const Events::AbnormalEffectChangedEvent&>(evt);
@@ -208,7 +212,7 @@ namespace Interlude
 
 				std::unordered_map<uint32_t, int32_t> ids;
 
-				for (size_t i = 0; i < skillInfo.size(); i += 3)
+				for (size_t i = 0; i + 2 < skillInfo.size(); i += 3)
 				{
 					ids[skillInfo[i]] = skillInfo[i + 2];
 				}
@@ -240,8 +244,24 @@ namespace Interlude
 		bool m_IsNewCycle = true;
 		uint32_t m_UsedSkillId = 0;
 		const NetworkHandlerWrapper& m_NetworkHandler;
-		TimerMap m_ReloadingTimers;
-		TimerMap m_CastingTimers;
-		std::shared_timed_mutex m_Mutex;
+		using Deadlines = std::map<uint32_t, std::chrono::steady_clock::time_point>;
+		Deadlines m_ReloadingUntil;
+		Deadlines m_CastingUntil;
+
+		void ExpireTimers(Deadlines& timers, std::chrono::steady_clock::time_point now, bool reload)
+		{
+			for (auto it = timers.begin(); it != timers.end(); )
+			{
+				const auto skill = m_Skills.find(it->first);
+				if (skill == m_Skills.end()) it = timers.erase(it);
+				else if (now >= it->second)
+				{
+					if (reload) skill->second->StopReloading();
+					else skill->second->StopCasting();
+					it = timers.erase(it);
+				}
+				else ++it;
+			}
+		}
 	};
 }

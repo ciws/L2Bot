@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 
 #include "Domain/Serializers/SerializerInterface.h"
 #include "Domain/Serializers/Node.h"
@@ -16,7 +17,7 @@ public:
 		{
 			if (!isArray)
 			{
-				result += L"\"" + it->name + L"\":";
+				result += Quote(it->name) + L":";
 			}
 			if (it->isContainer)
 			{
@@ -24,7 +25,7 @@ public:
 			}
 			else
 			{
-				result += L"\"" + it->value + L"\"";
+				result += Quote(it->value);
 			}
 			if (std::next(it) != nodes.end())
 			{
@@ -34,6 +35,33 @@ public:
 
 		result += isArray ? L"]" : L"}";
 
+		return result;
+	}
+private:
+	static std::wstring Quote(const std::wstring& value)
+	{
+		return L"\"" + Escape(value) + L"\"";
+	}
+
+	static std::wstring Escape(const std::wstring& value)
+	{
+		std::wstring result;
+		const wchar_t hex[] = L"0123456789abcdef";
+		for (const auto character : value)
+		{
+			if (character == L'"' || character == L'\\')
+			{
+				result += L'\\';
+				result += character;
+			}
+			else if (static_cast<uint32_t>(character) < 0x20)
+			{
+				result += L"\\u00";
+				result += hex[(character >> 4) & 15];
+				result += hex[character & 15];
+			}
+			else result += character;
+		}
 		return result;
 	}
 };

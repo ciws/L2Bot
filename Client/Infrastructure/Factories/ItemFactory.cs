@@ -1,4 +1,4 @@
-﻿using Client.Domain.Entities;
+using Client.Domain.Entities;
 using Client.Domain.Enums;
 using Client.Domain.Factories;
 using Client.Infrastructure.Parsers.Converters;
@@ -22,20 +22,20 @@ namespace Client.Infrastructure.Factories
                 throw new ArgumentNullException(nameof(type));
             }
 
-            switch (type.Type)
+            return type.Type switch
             {
-                case ItemTypeEnum.Etc:
-                    return JsonConvert.DeserializeObject<EtcItem>(data, settings);
-                default:
-                    return JsonConvert.DeserializeObject<EtcItem>(data, settings); //fixme temporary
-            }
-
-            throw new ArgumentException("Invalid item type " + type.Type.ToString());
+                ItemTypeEnum.Etc => JsonConvert.DeserializeObject<EtcItem>(data, settings),
+                ItemTypeEnum.Armor => JsonConvert.DeserializeObject<ArmorItem>(data, settings),
+                ItemTypeEnum.Weapon => JsonConvert.DeserializeObject<WeaponItem>(data, settings),
+                ItemTypeEnum.Shield => JsonConvert.DeserializeObject<ShieldItem>(data, settings),
+                _ => throw new ArgumentException("Invalid item type " + type.Type)
+            };
         }
 
         public void Update(ItemInterface entity, string data)
         {
             JsonConvert.PopulateObject(data, entity, settings);
+            (entity as BaseItem)?.NotifyUpdated();
         }
 
         private JsonSerializerSettings settings = new JsonSerializerSettings { Converters = { new BooleanConverter() } };

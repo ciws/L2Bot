@@ -28,7 +28,8 @@ namespace Client.Infrastructure.Service
             for (var attempt = 0; attempt < Math.Max(1, pathNumberOfAttempts); attempt++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (await MoveAsync(location, cancellationToken))
+                var result = await MoveCoreAsync(location, cancellationToken);
+                if (result.Reached || result.Superseded)
                 {
                     return;
                 }
@@ -36,6 +37,9 @@ namespace Client.Infrastructure.Service
         }
 
         public async Task<bool> MoveAsync(Vector3 location, CancellationToken cancellationToken = default)
+            => (await MoveCoreAsync(location, cancellationToken)).Reached;
+
+        private async Task<(bool Reached, bool Superseded)> MoveCoreAsync(Vector3 location, CancellationToken cancellationToken)
         {
             using var movement = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             lock (movementLock)
@@ -95,12 +99,12 @@ namespace Client.Infrastructure.Service
                     }
                     return true;
                 }, movement.Token);
-                return arrived;
+                return (arrived, false);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
                 // A newer movement request superseded this one; cancellation is not arrival.
-                return false;
+                return (false, true);
             }
             finally
             {

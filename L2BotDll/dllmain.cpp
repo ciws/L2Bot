@@ -5,9 +5,6 @@
 #include "Injector.h"
 
 InjectLibrary::Injector injector("L2BotHookMutex", WH_CALLWNDPROC);
-Application application(VersionAbstractFactory::Version::interlude);
-HANDLE g_StopEvent = NULL;
-HANDLE g_WorkerThread = NULL;
 HMODULE g_Module = NULL;
 bool g_IsLineageProcess = false;
 int g_ProcessId = 0;
@@ -52,28 +49,18 @@ DWORD WINAPI RuntimeThread(LPVOID)
 
 	try
 	{
+		// The injected runtime belongs to the game session. It is deliberately
+		// not destructed by the CRT while other threads are being terminated.
+		auto application = new Application(VersionAbstractFactory::Version::interlude);
 		InjectLibrary::StopCurrentProcess();
-		application.Start();
+		try { application->Start(); }
+		catch (...) { InjectLibrary::StartCurrentProcess(); throw; }
 		InjectLibrary::StartCurrentProcess();
 		Services::ServiceLocator::GetInstance().GetLogger()->Info(L"attached to Lineage 2 client {:#010x}", g_ProcessId);
 	}
 	catch (...)
 	{
-		InjectLibrary::StartCurrentProcess();
-	}
-
-	WaitForSingleObject(g_StopEvent, INFINITE);
-
-	try
-	{
-		InjectLibrary::StopCurrentProcess();
-		application.Stop();
-		InjectLibrary::StartCurrentProcess();
-		Services::ServiceLocator::GetInstance().GetLogger()->Info(L"detached from Lineage 2 client {:#010x}", g_ProcessId);
-	}
-	catch (...)
-	{
-		InjectLibrary::StartCurrentProcess();
+		Services::ServiceLocator::GetInstance().GetLogger()->Error(L"Unable to initialize the injected runtime");
 	}
 
 	return 0;
@@ -93,37 +80,19 @@ BOOL APIENTRY DllMain(HMODULE hModule,
 		g_IsLineageProcess = InjectLibrary::GetCurrentProcessName() == "l2.exe";
 
 		injector.SetHook(hModule);
-		if (g_IsLineageProcess) {
-			g_StopEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
-			if (g_StopEvent != NULL)
-			{
-				g_WorkerThread = CreateThread(NULL, 0, RuntimeThread, NULL, 0, NULL);
-			}
+		if (g_IsLineageProcess)
+		{
+			// Live hooks point into this module. Keep them valid until game exit;
+			// never wait for worker threads from DllMain's loader lock.
+			HMODULE pinned = NULL;
+			if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
+				reinterpret_cast<LPCWSTR>(&DllMain), &pinned)) return FALSE;
+			HANDLE worker = CreateThread(NULL, 0, RuntimeThread, NULL, 0, NULL);
+			if (worker) CloseHandle(worker);
 		}
 		break;
 	case DLL_PROCESS_DETACH:
-		if (g_IsLineageProcess) {
-			if (g_StopEvent != NULL)
-			{
-				SetEvent(g_StopEvent);
-			}
 
-			if (lpReserved == NULL && g_WorkerThread != NULL)
-			{
-				WaitForSingleObject(g_WorkerThread, 5000);
-			}
-
-			if (g_WorkerThread != NULL)
-			{
-				CloseHandle(g_WorkerThread);
-				g_WorkerThread = NULL;
-			}
-			if (g_StopEvent != NULL)
-			{
-				CloseHandle(g_StopEvent);
-				g_StopEvent = NULL;
-			}
-		}
 		injector.SetHook();
 		break;
 	}

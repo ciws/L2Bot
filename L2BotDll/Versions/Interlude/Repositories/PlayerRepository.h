@@ -1,4 +1,5 @@
 #pragma once
+#include "Domain/Services/WorldState.h"
 #include <unordered_map>
 #include "Domain/Repositories/EntityRepositoryInterface.h"
 #include "../Factories/PlayerFactory.h"
@@ -14,6 +15,7 @@ namespace Interlude
 	public:
 		const std::unordered_map<std::uint32_t, std::shared_ptr<Entities::EntityInterface>> GetEntities() override
 		{
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 			const auto allCreatures = FindAllObjects<User*>(m_Radius, [this](float_t radius, int32_t prevId) {
 				return m_NetworkHandler.GetNextCreature(radius, prevId);
 			});
@@ -42,7 +44,7 @@ namespace Interlude
 
 		void Reset() override
 		{
-			std::shared_lock<std::shared_timed_mutex>(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 			m_Players.clear();
 		}
 

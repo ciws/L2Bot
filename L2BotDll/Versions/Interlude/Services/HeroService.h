@@ -41,11 +41,11 @@ namespace Interlude
 		{
 			auto target = m_NetworkHandler.GetUser(objectId);
 
-			if (target) {
+			if (target && target->pawn) {
 				if (target->objectId == objectId) {
 					auto hero = m_NetworkHandler.GetHero();
 					// Reset target
-					if (hero)
+					if (hero && hero->pawn)
 					{
 						m_NetworkHandler.Action(hero->objectId, hero->pawn->Location, 0);
 					}
@@ -58,7 +58,7 @@ namespace Interlude
 		{
 			auto target = m_NetworkHandler.GetUser(objectId);
 
-			if (target) {
+			if (target && target->pawn) {
 				// Acquire target
 				m_NetworkHandler.Action(objectId, target->pawn->Location, 0);
 				// Attack
@@ -70,7 +70,7 @@ namespace Interlude
 		{
 			auto target = m_NetworkHandler.GetItem(objectId);
 
-			if (target) {
+			if (target && target->pawn) {
 				m_NetworkHandler.Action(objectId, target->pawn->Location, 0);
 			}
 		}
@@ -102,7 +102,8 @@ namespace Interlude
 			const auto item = m_ItemRespository.GetItem(objectId);
 			if (item)
 			{
-				const auto etcItem = static_cast<const Entities::EtcItem*>(item.get());
+				const auto etcItem = dynamic_cast<const Entities::EtcItem*>(item.get());
+				if (!etcItem) return;
 
 				L2ParamStack* stack = new L2ParamStack(2);
 				stack->PushBack((void*)etcItem->GetItemId());

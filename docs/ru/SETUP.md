@@ -50,7 +50,7 @@ cd Client
 dotnet build -c Release
 ```
 
-В output (`bin\Release\net6.0-windows\`) автоматически копируются: `config.json`, `Assets\icons`, `Assets\maps`, `Assets\data`, `Assets\geodata`, `L2BotDll.dll` (если положил в папку проекта) и `L2JGeoDataPathFinder.dll`.
+В output (`Release\bin\`) автоматически копируются: `config.json`, `Assets\icons`, `Assets\maps`, `Assets\data`, `Assets\geodata`, `L2BotDll.dll` (если положил в папку проекта) и `L2JGeoDataPathFinder.dll`.
 
 ## Шаг 5. Запуск
 

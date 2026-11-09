@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -10,6 +10,7 @@ namespace Client.Domain.Factories
 {
     public interface EntityHandlerFactoryInterface
     {
+        void Reset();
         HandlerInterface GetHandler(MessageTypeEnum type);
     }
 }

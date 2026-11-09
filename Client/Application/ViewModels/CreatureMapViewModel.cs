@@ -1,4 +1,4 @@
-﻿using Client.Domain.Common;
+using Client.Domain.Common;
 using Client.Domain.Entities;
 using Client.Domain.Enums;
 using Client.Domain.Service;
@@ -15,7 +15,7 @@ using System.Net.Http;
 
 namespace Client.Application.ViewModels
 {
-    public class CreatureMapViewModel : ObservableObject
+    public class CreatureMapViewModel : ObservableObject, IDisposable
     {
         public uint Id => creature.Id;
         public string Name => creature.Name;
@@ -145,6 +145,16 @@ namespace Client.Application.ViewModels
             {
                 OnPropertyChanged("Name");
             }
+        }
+
+        public void Dispose()
+        {
+            creature.PropertyChanged -= Creature_PropertyChanged;
+            creature.Transform.PropertyChanged -= Transform_PropertyChanged;
+            creature.Transform.Position.PropertyChanged -= Position_PropertyChanged;
+            creature.VitalStats.PropertyChanged -= VitalStats_PropertyChanged;
+            hero.Transform.Position.PropertyChanged -= HeroPosition_PropertyChanged;
+            hero.PropertyChanged -= Hero_PropertyChanged;
         }
 
         private readonly CreatureInterface creature;

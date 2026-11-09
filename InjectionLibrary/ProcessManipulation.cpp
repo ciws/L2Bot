@@ -36,13 +36,13 @@ namespace InjectLibrary
 		THREADENTRY32 thread;
 		HANDLE threadHandle;
 		if (snap != INVALID_HANDLE_VALUE) {
-			thread.dwSize = sizeof(LPTHREADENTRY32);
+			thread.dwSize = sizeof(THREADENTRY32);
 			if (Thread32First(snap, &thread)) {
 				do {
-					if (thread.th32ThreadID != currThread && thread.th32OwnerProcessID != processId) {
+					if (thread.th32ThreadID != currThread && thread.th32OwnerProcessID == processId) {
 						threadHandle = OpenThread(THREAD_SUSPEND_RESUME, FALSE, thread.th32ThreadID);
 						if (threadHandle == 0) {
-							break;
+							continue;
 						}
 						ResumeThread(threadHandle);
 						CloseHandle(threadHandle);
@@ -65,13 +65,13 @@ namespace InjectLibrary
 		THREADENTRY32 thread;
 		HANDLE threadHandle;
 		if (snap != INVALID_HANDLE_VALUE) {
-			thread.dwSize = sizeof(LPTHREADENTRY32);
+			thread.dwSize = sizeof(THREADENTRY32);
 			if (Thread32First(snap, &thread)) {
 				do {
-					if (thread.th32ThreadID != currThread && thread.th32OwnerProcessID != processId) {
+					if (thread.th32ThreadID != currThread && thread.th32OwnerProcessID == processId) {
 						threadHandle = OpenThread(THREAD_SUSPEND_RESUME, FALSE, thread.th32ThreadID);
 						if (threadHandle == 0) {
-							break;
+							continue;
 						}
 						SuspendThread(threadHandle);
 						CloseHandle(threadHandle);

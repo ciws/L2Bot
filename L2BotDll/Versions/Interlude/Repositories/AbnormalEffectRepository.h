@@ -1,4 +1,5 @@
 #pragma once
+#include "Domain/Services/WorldState.h"
 
 #include <unordered_map>
 #include <chrono>
@@ -19,7 +20,7 @@ namespace Interlude
 	public:
 		const std::unordered_map<std::uint32_t, std::shared_ptr<Entities::EntityInterface>> GetEntities() override
 		{
-			std::unique_lock<std::shared_timed_mutex>(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 
 			return m_Effects;
 		}
@@ -44,13 +45,13 @@ namespace Interlude
 
 		void Reset() override
 		{
-			std::shared_lock<std::shared_timed_mutex>(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 			m_Effects.clear();
 		}
 
 		void OnHeroDeleted(const Events::Event& evt)
 		{
-			std::shared_lock<std::shared_timed_mutex>(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 			if (evt.GetName() == Events::HeroDeletedEvent::name)
 			{
 				Reset();
@@ -59,7 +60,7 @@ namespace Interlude
 
 		void OnEffectToggled(const Events::Event& evt)
 		{
-			std::shared_lock<std::shared_timed_mutex>(m_Mutex);
+			std::lock_guard<std::recursive_mutex> guard(Services::WorldStateMutex());
 			if (evt.GetName() == Events::AbnormalEffectChangedEvent::name)
 			{
 				const auto casted = static_cast<const Events::AbnormalEffectChangedEvent&>(evt);
@@ -74,7 +75,7 @@ namespace Interlude
 		{
 			std::unordered_map<uint32_t, int32_t> ids;
 
-			for (size_t i = 0; i < skillInfo.size(); i += 3)
+			for (size_t i = 0; i + 2 < skillInfo.size(); i += 3)
 			{
 				const auto effectId = skillInfo[i];
 				const auto level = skillInfo[i + 1];
@@ -105,6 +106,5 @@ namespace Interlude
 	private:
 		const AbnormalEffectFactory& m_Factory;
 		std::unordered_map<uint32_t, std::shared_ptr<Entities::EntityInterface>> m_Effects;
-		std::shared_timed_mutex m_Mutex;
 	};
 }

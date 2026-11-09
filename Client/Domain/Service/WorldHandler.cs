@@ -16,6 +16,8 @@ using Client.Domain.Transports;
 namespace Client.Domain.Service
 {
     public class WorldHandler :
+        EventHandlerInterface<AbnormalEffectCreatedEvent>,
+        EventHandlerInterface<AbnormalEffectDeletedEvent>,
         EventHandlerInterface<HeroCreatedEvent>,
         EventHandlerInterface<HeroDeletedEvent>,
         EventHandlerInterface<CreatureCreatedEvent>,
@@ -28,6 +30,13 @@ namespace Client.Domain.Service
         EventHandlerInterface<ItemDeletedEvent>
     {
         public Hero? Hero => hero;
+        public IReadOnlyCollection<AbnormalEffect> AbnormalEffects => effects.Values.ToArray();
+        public event Action? InventoryChanged;
+        private void OnItemChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) => InventoryChanged?.Invoke();
+        public IReadOnlyCollection<ItemInterface> Items => items.Values.ToArray();
+
+        public void Handle(AbnormalEffectCreatedEvent evt) => effects[evt.Effect.Id] = evt.Effect;
+        public void Handle(AbnormalEffectDeletedEvent evt) => effects.TryRemove(evt.Id, out _);
 
         public bool IsAvailableTarget(NPC npc, double radius)
         {
@@ -231,7 +240,10 @@ namespace Client.Domain.Service
             creatures.Clear();
             drops.Clear();
             skills.Clear();
+            foreach (var item in items.Values) item.PropertyChanged -= OnItemChanged;
             items.Clear();
+            InventoryChanged?.Invoke();
+            effects.Clear();
         }
 
         public void Handle(CreatureCreatedEvent @event)
@@ -277,13 +289,21 @@ namespace Client.Domain.Service
         {
             if (!items.ContainsKey(@event.Item.Id))
             {
-                items.TryAdd(@event.Item.Id, @event.Item);
+                if (items.TryAdd(@event.Item.Id, @event.Item))
+                {
+                    @event.Item.PropertyChanged += OnItemChanged;
+                    InventoryChanged?.Invoke();
+                }
             }
         }
 
         public void Handle(ItemDeletedEvent @event)
         {
-            items.Remove(@event.Id, out ItemInterface? value);
+            if (items.TryRemove(@event.Id, out var value))
+            {
+                value.PropertyChanged -= OnItemChanged;
+                InventoryChanged?.Invoke();
+            }
         }
         #endregion
 
@@ -293,6 +313,7 @@ namespace Client.Domain.Service
             this.transport = transport;
         }
 
+        private readonly ConcurrentDictionary<uint, AbnormalEffect> effects = new();
         private Hero? hero;
         private ConcurrentDictionary<uint, CreatureInterface> creatures = new ConcurrentDictionary<uint, CreatureInterface>();
         private ConcurrentDictionary<uint, Drop> drops = new ConcurrentDictionary<uint, Drop>();

@@ -1,4 +1,4 @@
-﻿using Client.Application.Commands;
+using Client.Application.Commands;
 using Client.Domain.Common;
 using Client.Domain.Entities;
 using Client.Domain.Service;
@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace Client.Application.ViewModels
 {
-    public class PathNodeViewModel : ObservableObject
+    public class PathNodeViewModel : ObservableObject, IDisposable
     {
         public Vector3 From => new Vector3(
            (from.X - hero.Transform.Position.X) / scale + (VieportSize.X / 2),
@@ -68,6 +68,8 @@ namespace Client.Application.ViewModels
             OnPropertyChanged("From");
             OnPropertyChanged("To");
         }
+
+        public void Dispose() => hero.Transform.Position.PropertyChanged -= HeroPosition_PropertyChanged;
 
         private readonly Vector3 from;
         private readonly Vector3 to;

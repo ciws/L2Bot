@@ -31,7 +31,6 @@ public:
 		}
 		Services::ServiceLocator::GetInstance().GetLogger()->Info(L"client connected to the main pipe ""{}""", mainPipeName);
 
-		m_Pipe.Send(L"Hello!");
 
 		return true;
 	}

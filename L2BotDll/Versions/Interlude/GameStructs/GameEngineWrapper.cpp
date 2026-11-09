@@ -113,14 +113,14 @@ namespace Interlude
 
 	int __fastcall GameEngineWrapper::__OnReceiveMagicSkillUse_hook(GameEngine* This, uint32_t, User* attacker, User* target, L2ParamStack& stack)
 	{
-		Services::ServiceLocator::GetInstance().GetEventDispatcher()->Dispatch(Events::SkillUsedEvent{ stack.GetBufferAsVector<int32_t>() });
-		Services::ServiceLocator::GetInstance().GetEventDispatcher()->Dispatch(Events::AttackedEvent{ attacker->objectId, target->objectId });
+		Services::ServiceLocator::GetInstance().GetEventDispatcher()->Dispatch(Events::SkillUsedEvent{ stack.GetBufferAsVector<int32_t>(), attacker ? attacker->objectId : 0 });
+		Services::ServiceLocator::GetInstance().GetEventDispatcher()->Dispatch(Events::AttackedEvent{ attacker ? attacker->objectId : 0, target ? target->objectId : 0 });
 		return (*__OnReceiveMagicSkillUse)(This, attacker, target, stack);
 	}
 
 	void __fastcall GameEngineWrapper::__OnReceiveMagicSkillCanceled_hook(GameEngine* This, uint32_t, User* user)
 	{
-		Services::ServiceLocator::GetInstance().GetEventDispatcher()->Dispatch(Events::SkillCancelledEvent{ user->objectId });
+		Services::ServiceLocator::GetInstance().GetEventDispatcher()->Dispatch(Events::SkillCancelledEvent{ user ? user->objectId : 0 });
 		(*__OnReceiveMagicSkillCanceled)(This, user);
 	}
 
@@ -201,6 +201,7 @@ namespace Interlude
 	void __fastcall GameEngineWrapper::__OnSay2_hook(GameEngine* This, uint32_t, L2ParamStack& stack)
 	{
 		const auto buffer = stack.GetBufferAsVector<uint32_t>();
+		if (buffer.size() < 4 || !buffer[2] || !buffer[3]) { (*__OnSay2)(This, stack); return; }
 
 		Services::ServiceLocator::GetInstance().GetEventDispatcher()->Dispatch(
 			Events::ChatMessageCreatedEvent
@@ -231,14 +232,14 @@ namespace Interlude
 
 	int __fastcall GameEngineWrapper::__OnDie_hook(GameEngine* This, int, User* creature, L2ParamStack& stack)
 	{
-		Services::ServiceLocator::GetInstance().GetEventDispatcher()->Dispatch(Events::CreatureDiedEvent{ creature->objectId, stack.GetBufferAsVector<int32_t>() });
+		Services::ServiceLocator::GetInstance().GetEventDispatcher()->Dispatch(Events::CreatureDiedEvent{ creature ? creature->objectId : 0, stack.GetBufferAsVector<int32_t>() });
 
 		return (*__OnDie)(This, creature, stack);
 	}
 
 	int __fastcall GameEngineWrapper::__OnAttack_hook(GameEngine* This, int, User* attacker, User* target, int unk0, int unk1, int unk2, int unk3, int unk4, L2::FVector unk5, int unk6)
 	{
-		Services::ServiceLocator::GetInstance().GetEventDispatcher()->Dispatch(Events::AttackedEvent{ attacker->objectId, target->objectId });
+		Services::ServiceLocator::GetInstance().GetEventDispatcher()->Dispatch(Events::AttackedEvent{ attacker ? attacker->objectId : 0, target ? target->objectId : 0 });
 		return (*__OnAttack)(This, attacker, target, unk0, unk1, unk2, unk3, unk4, unk5, unk6);
 	}
 }

@@ -17,7 +17,7 @@ namespace L2Bot::Domain::Entities
 		}
 		void StopAutouse()
 		{
-			m_IsAutoused = true;
+			m_IsAutoused = false;
 		}
 		const bool IsAutoused() const
 		{
@@ -44,7 +44,8 @@ namespace L2Bot::Domain::Entities
 			return Helpers::CombineHashes({
 				BaseItem::GetHash(),
 				std::hash<uint32_t>{}(m_Amount),
-				std::hash<bool>{}(m_IsQuest)
+				std::hash<bool>{}(m_IsQuest),
+				std::hash<bool>{}(m_IsAutoused)
 			});
 		}
 

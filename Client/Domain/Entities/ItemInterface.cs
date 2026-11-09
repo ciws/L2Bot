@@ -1,4 +1,4 @@
-﻿using Client.Domain.Enums;
+using Client.Domain.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Client.Domain.Entities
 {
-    public interface ItemInterface : EntityInterface
+    public interface ItemInterface : EntityInterface, System.ComponentModel.INotifyPropertyChanged
     {
         uint ItemId { get; set; }
         ItemTypeEnum Type { get; set; }

@@ -1,4 +1,4 @@
-﻿using Client.Domain.Common;
+using Client.Domain.Common;
 using Client.Domain.Entities;
 using Client.Domain.Enums;
 using Client.Domain.ValueObjects;
@@ -14,7 +14,7 @@ using Client.Application.Commands;
 
 namespace Client.Application.ViewModels
 {
-    public class DropMapViewModel : ObservableObject
+    public class DropMapViewModel : ObservableObject, IDisposable
     {
         public uint Id => drop.Id;
         public string Name => drop.Name + " (" + drop.Amount + ")";
@@ -90,6 +90,13 @@ namespace Client.Application.ViewModels
             {
                 OnPropertyChanged("Name");
             }
+        }
+
+        public void Dispose()
+        {
+            drop.PropertyChanged -= Creature_PropertyChanged;
+            drop.Transform.Position.PropertyChanged -= Position_PropertyChanged;
+            hero.Transform.Position.PropertyChanged -= HeroPosition_PropertyChanged;
         }
 
         private readonly Drop drop;

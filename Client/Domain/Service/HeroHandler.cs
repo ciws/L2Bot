@@ -1,4 +1,4 @@
-﻿using Client.Domain.Entities;
+using Client.Domain.Entities;
 using Client.Domain.Events;
 using Client.Domain.Factories;
 using Client.Domain.Helpers;
@@ -32,6 +32,7 @@ namespace Client.Domain.Service
 
         public override void OnDelete(Hero entity)
         {
+            entity.PropertyChanged -= Hero_PropertyChanged;
             eventBus.Publish(new HeroDeletedEvent());
         }
 

@@ -62,7 +62,7 @@ namespace Client
                 ShutdownMode = ShutdownMode.OnLastWindowClose;
 
                 bot = AppHost.Services.GetRequiredService<Bot>();
-                _ = bot.StartAsync();
+                _ = RunBotAsync(bot);
             }
             catch (Exception ex)
             {
@@ -146,6 +146,17 @@ namespace Client
             }
         }
 
+        private async Task RunBotAsync(Bot instance)
+        {
+            try { await instance.StartAsync(); }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show("Unable to start the game connection:\n" + ex.Message,
+                    "L2Bot", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         protected override async void OnExit(ExitEventArgs e)
         {
             AppHost?.Services.GetService<BotEngineInterface>()?.Stop();
@@ -197,6 +208,7 @@ namespace Client
 
                 .AddTransient(typeof(EntityFactoryInterface<Entity>), typeof(EntityFactory<Entity>))
                 .AddTransient(typeof(EntityFactoryInterface<Hero>), typeof(EntityFactory<Hero>))
+                .AddTransient(typeof(EntityFactoryInterface<AbnormalEffect>), typeof(EntityFactory<AbnormalEffect>))
                 .AddTransient(typeof(EntityFactoryInterface<Drop>), typeof(EntityFactory<Drop>))
                 .AddTransient(typeof(EntityFactoryInterface<NPC>), typeof(EntityFactory<NPC>))
                 .AddTransient(typeof(EntityFactoryInterface<Player>), typeof(EntityFactory<Player>))
@@ -205,6 +217,7 @@ namespace Client
                 .AddTransient(typeof(EntityFactoryInterface<ItemInterface>), typeof(ItemFactory))
 
                 .AddSingleton<HeroHandler>()
+                .AddSingleton<AbnormalEffectHandler>()
                 .AddSingleton<DropHandler>()
                 .AddSingleton<NpcHandler>()
                 .AddSingleton<PlayerHandler>()

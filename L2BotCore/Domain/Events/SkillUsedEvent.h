@@ -21,7 +21,10 @@ namespace L2Bot::Domain::Events
 			return m_SkillInfo;
 		}
 
-		SkillUsedEvent(const std::vector<int32_t> skillInfo) :
+		const uint32_t GetCasterId() const { return m_CasterId; }
+
+		SkillUsedEvent(const std::vector<int32_t> skillInfo, uint32_t casterId) :
+			m_CasterId(casterId),
 			m_SkillInfo(skillInfo)
 		{
 
@@ -32,5 +35,6 @@ namespace L2Bot::Domain::Events
 
 	private:
 		const std::vector<int32_t> m_SkillInfo;
+		const uint32_t m_CasterId;
 	};
 }

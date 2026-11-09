@@ -1,4 +1,4 @@
-﻿using Client.Domain.Common;
+using Client.Domain.Common;
 using Client.Domain.Entities;
 using Client.Domain.ValueObjects;
 using System;
@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace Client.Application.ViewModels
 {
-    public class HeroSummaryInfoViewModel : ObservableObject
+    public class HeroSummaryInfoViewModel : ObservableObject, IDisposable
     {
         public bool IsVisible {
             get
@@ -63,7 +63,7 @@ namespace Client.Application.ViewModels
         {
             get
             {
-                return 0;
+                return worldHandler.Items.Where(item => item.ItemId == 57).Aggregate(0UL, (sum, item) => sum + item.Amount);
             }
         }
 
@@ -81,9 +81,11 @@ namespace Client.Application.ViewModels
                 return hero.AttackerIds.ToList();
             }
         }
-        public HeroSummaryInfoViewModel(Hero hero)
+        public HeroSummaryInfoViewModel(Hero hero, Client.Domain.Service.WorldHandler worldHandler)
         {
             this.hero = hero;
+            this.worldHandler = worldHandler;
+            worldHandler.InventoryChanged += InventoryChanged;
 
             hero.FullName.PropertyChanged += FullName_PropertyChanged;
             hero.Phenotype.PropertyChanged += Phenotype_PropertyChanged;
@@ -105,6 +107,7 @@ namespace Client.Application.ViewModels
                 }
                 else if (target != null && hero.Target == null)
                 {
+                    target.Dispose();
                     target = null;
                     OnPropertyChanged("Target");
                 }
@@ -145,7 +148,23 @@ namespace Client.Application.ViewModels
             OnPropertyChanged("Fullname");
         }
 
+        private void InventoryChanged() => OnPropertyChanged(nameof(Money));
+
+        public void Dispose()
+        {
+            hero.FullName.PropertyChanged -= FullName_PropertyChanged;
+            hero.Phenotype.PropertyChanged -= Phenotype_PropertyChanged;
+            hero.ExperienceInfo.PropertyChanged -= ExperienceInfo_PropertyChanged;
+            hero.Transform.PropertyChanged -= Transform_PropertyChanged;
+            hero.VitalStats.PropertyChanged -= VitalStats_PropertyChanged;
+            hero.InventoryInfo.PropertyChanged -= InventoryInfo_PropertyChanged;
+            hero.PropertyChanged -= Hero_PropertyChanged;
+            target?.Dispose();
+            worldHandler.InventoryChanged -= InventoryChanged;
+        }
+
         private readonly Hero hero;
+        private readonly Client.Domain.Service.WorldHandler worldHandler;
         private TargetSummaryInfoViewModel? target;
     }
 }
