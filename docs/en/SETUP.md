@@ -6,7 +6,7 @@ The bot works on Windows only (DLL injection + WPF client). Chronicles: **Interl
 
 - Windows 10/11
 - Visual Studio 2022 with the "Desktop development with C++" workload
-- .NET 6 SDK (for the client)
+- .NET 8 SDK (for the client)
 - Lineage 2 Interlude game client
 
 ## Project structure

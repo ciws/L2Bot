@@ -1,0 +1,28 @@
+name: Build check
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout L2Bot
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build injectable DLL and core (Release Win32)
+        run: msbuild L2Bot.sln /p:Configuration=Release /p:Platform=x86 /t:L2BotDll /m
+
+      - name: Build WPF client (Release)
+        run: dotnet build Client\Client.csproj -c Release

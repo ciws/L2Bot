@@ -6,7 +6,7 @@
 
 [![Release](https://img.shields.io/github/v/release/ciws/L2Bot)](https://github.com/ciws/L2Bot/releases/latest)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue)](#)
-[![Client](https://img.shields.io/badge/client-.NET%206%20WPF-purple)](#)
+[![Client](https://img.shields.io/badge/client-.NET%208%20WPF-purple)](#)
 [![Core](https://img.shields.io/badge/core-C%2B%2B-orange)](#)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -31,7 +31,7 @@ L2Bot 2.0 is an ingame bot for Lineage 2 Interlude: a native DLL is injected int
 | 🧠 [`L2BotCore`](L2BotCore) | C++ | Bot framework core — entities, services, events, repositories |
 | 💉 [`L2BotDll`](L2BotDll) | C++ | Injectable DLL, Interlude realization |
 | 🪝 [`InjectionLibrary`](InjectionLibrary) | C++ | Code injection helpers — hooks, trampolines, process manipulation |
-| 🖥️ [`Client`](Client) | C#, WPF, .NET 6 | GUI client with world map and pathfinding *(work in progress)* |
+| 🖥️ [`Client`](Client) | C#, WPF, .NET 8 | GUI client with world map and pathfinding *(work in progress)* |
 
 ### 🔄 How it works
 
@@ -82,7 +82,7 @@ L2Bot 2.0 — внутриигровой бот для Lineage 2 Interlude: на
 | 🧠 [`L2BotCore`](L2BotCore) | C++ | Ядро-фреймворк бота — сущности, сервисы, события, репозитории |
 | 💉 [`L2BotDll`](L2BotDll) | C++ | Инжектируемая DLL, реализация под Interlude |
 | 🪝 [`InjectionLibrary`](InjectionLibrary) | C++ | Библиотека инжекции — хуки, трамплины, работа с процессами |
-| 🖥️ [`Client`](Client) | C#, WPF, .NET 6 | GUI-клиент с картой мира и поиском пути *(в разработке)* |
+| 🖥️ [`Client`](Client) | C#, WPF, .NET 8 | GUI-клиент с картой мира и поиском пути *(в разработке)* |
 
 ### 🔄 Как это работает
 

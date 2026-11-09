@@ -24,10 +24,10 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      - name: Setup .NET 6
+      - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "6.0.x"
+          dotnet-version: "8.0.x"
 
       - name: Build geodata pathfinder (Release x86)
         run: msbuild pathfinder\L2jGeodataPathFinder.sln /t:L2jGeodataPathFinder /p:Configuration=Release /p:Platform=x86 /m

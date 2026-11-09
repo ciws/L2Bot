@@ -6,7 +6,7 @@
 
 - Windows 10/11
 - Visual Studio 2022 с workload «Desktop development with C++»
-- .NET 6 SDK (для клиента)
+- .NET 8 SDK (для клиента)
 - Клиент Lineage 2 Interlude
 
 ## Структура проекта
