@@ -1,0 +1,25 @@
+<Window x:Class="Client.Application.Views.GeodataDownloadWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="L2Bot 2.0 - Geodata download"
+        Width="460" Height="190"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Downloading Interlude geodata (~545 MB, one-time)"
+                   FontWeight="Bold" Margin="0,0,0,10"/>
+        <ProgressBar x:Name="ProgressBar" Grid.Row="1" Height="18" Minimum="0" Maximum="100"/>
+        <TextBlock x:Name="StatusText" Grid.Row="2" Margin="0,8,0,0" Text="Preparing..."/>
+        <TextBlock x:Name="FileText" Grid.Row="3" Margin="0,4,0,0" Foreground="Gray" Text=""/>
+        <Button x:Name="CancelButton" Grid.Row="4" Content="Cancel"
+                Width="90" HorizontalAlignment="Right" Click="OnCancelClick"/>
+    </Grid>
+</Window>

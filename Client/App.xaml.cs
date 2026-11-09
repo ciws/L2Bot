@@ -1,4 +1,4 @@
-﻿using Client.Domain.Factories;
+using Client.Domain.Factories;
 using Client.Infrastructure.Factories;
 using Client.Domain.Parsers;
 using Client.Infrastructure.Parsers;
@@ -48,10 +48,18 @@ namespace Client
         {
             try
             {
+                ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+                if (!await EnsureGeodataAsync())
+                {
+                    return;
+                }
+
                 await AppHost!.StartAsync();
 
                 var startupForm = AppHost.Services.GetRequiredService<MainWindow>();
                 startupForm.Show();
+                ShutdownMode = ShutdownMode.OnLastWindowClose;
 
                 bot = AppHost.Services.GetRequiredService<Bot>();
                 _ = bot.StartAsync();
@@ -63,6 +71,79 @@ namespace Client
             }
 
             base.OnStartup(e);
+        }
+
+        /// <summary>
+        /// Checks that the geodata files are present in Assets/geodata and
+        /// downloads the missing ones from the public geodata repository,
+        /// showing a progress window. Returns false when the app should exit.
+        /// </summary>
+        private async Task<bool> EnsureGeodataAsync()
+        {
+            IConfiguration config = new ConfigurationBuilder()
+                .AddJsonFile("config.json", optional: false)
+                .Build();
+
+            var downloader = new GeodataDownloader(
+                config.GetValue<string>("GeoDataDirectory") ?? "geodata"
+            );
+
+            List<GeodataFile> missing;
+            try
+            {
+                missing = await downloader.GetMissingFilesAsync();
+            }
+            catch (Exception ex)
+            {
+                var answer = System.Windows.MessageBox.Show(
+                    "Unable to check geodata files online:\n" + ex.Message +
+                    "\n\nContinue without geodata? Pathfinding will not work.",
+                    "L2Bot 2.0",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning
+                );
+                if (answer == MessageBoxResult.No)
+                {
+                    Shutdown(-1);
+                    return false;
+                }
+                return true;
+            }
+
+            if (missing.Count == 0)
+            {
+                return true;
+            }
+
+            var window = new GeodataDownloadWindow();
+            window.Show();
+            try
+            {
+                await downloader.DownloadAsync(
+                    missing,
+                    new Progress<GeodataDownloadProgress>(window.UpdateProgress),
+                    window.CancellationToken
+                );
+                window.Close();
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                Shutdown(0);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                window.Close();
+                System.Windows.MessageBox.Show(
+                    "Geodata download failed:\n" + ex.Message,
+                    "L2Bot 2.0",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
+                Shutdown(-1);
+                return false;
+            }
         }
 
         protected override async void OnExit(ExitEventArgs e)

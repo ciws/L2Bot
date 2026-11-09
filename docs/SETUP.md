@@ -22,7 +22,9 @@
 
 ## Шаг 1. Геодата
 
-Геодата **не хранится в git** (`Client/Assets/geodata/` в `.gitignore`, ~545 МБ). Если папки нет — скачай заново:
+Геодата **не хранится в git** (`Client/Assets/geodata/` в `.gitignore`, ~545 МБ). При первом запуске клиент сам проверит её наличие и скачает недостающие файлы из публичного репозитория [LGK-Games/Geodata](https://github.com/LGK-Games/Geodata) — появится окно с прогрессом. Отмена закрывает приложение (без геодаты pathfinding не работает).
+
+Если хочешь скачать вручную (например, заранее, по медленному каналу):
 
 ```bat
 git clone --depth 1 --filter=blob:none --sparse https://github.com/LGK-Games/Geodata.git %TEMP%\l2geo
