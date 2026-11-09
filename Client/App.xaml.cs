@@ -231,6 +231,9 @@ namespace Client
                 )
 
                 .AddSingleton<MainViewModel>();
+
+            services
+                .AddSingleton(typeof(BotEngineInterface), typeof(BotEngine));
         }
     }
 }

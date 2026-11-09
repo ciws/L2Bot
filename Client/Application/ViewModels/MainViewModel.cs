@@ -1,4 +1,4 @@
-﻿using Client.Application.Components;
+using Client.Application.Components;
 using Client.Domain.Common;
 using Client.Domain.Entities;
 using Client.Domain.Events;
@@ -145,11 +145,12 @@ namespace Client.Application.ViewModels
             Map.Creatures.RemoveAll(x => x.Id == id);
         }
 
-        public MainViewModel(WorldHandler worldHandler, AsyncPathMoverInterface pathMover)
+        public MainViewModel(WorldHandler worldHandler, AsyncPathMoverInterface pathMover, BotEngineInterface botEngine)
         {
             this.worldHandler = worldHandler;
             this.pathMover = pathMover;
             Map = new MapViewModel(pathMover);
+            Bot = new BotViewModel(botEngine);
         }
 
         public ObservableCollection<ChatMessageViewModel> ChatMessages { get; } = new ObservableCollection<ChatMessageViewModel>();
@@ -161,6 +162,7 @@ namespace Client.Application.ViewModels
         public ObservableCollection<ItemListViewModel> QuestItems { get; } = new ObservableCollection<ItemListViewModel>();
         public HeroSummaryInfoViewModel? Hero { get; private set; }
         public MapViewModel Map { get; private set; }
+        public BotViewModel Bot { get; private set; }
         public Hero? hero;
         private readonly WorldHandler worldHandler;
         private readonly AsyncPathMoverInterface pathMover;
