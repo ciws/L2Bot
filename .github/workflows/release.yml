@@ -30,7 +30,7 @@ jobs:
           dotnet-version: "6.0.x"
 
       - name: Build geodata pathfinder (Release x86)
-        run: msbuild pathfinder\L2jGeodataPathFinder.sln /p:Configuration=Release /p:Platform=x86 /m
+        run: msbuild pathfinder\L2jGeodataPathFinder.sln /t:L2jGeodataPathFinder /p:Configuration=Release /p:Platform=x86 /m
 
       - name: Copy pathfinder DLL into the client project
         run: copy /Y pathfinder\Release\bin\L2jGeodataPathFinder.dll Client\L2JGeoDataPathFinder.dll
