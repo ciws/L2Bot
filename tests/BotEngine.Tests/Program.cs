@@ -184,6 +184,8 @@ static class Tests
         var engine = new BotEngine(world, new BlockingMover(), 1000, 80, 0.5, 1, 1.5, 3);
         var states = new ConcurrentQueue<BotState>();
         engine.StateChanged += states.Enqueue;
+        var stoppedNotification = false;
+        engine.StateChanged += state => { if (state == BotState.Idle) stoppedNotification = !engine.IsRunning; };
         engine.Start();
         await Until(() => transport.Messages.Contains("Attack:2"));
         await Task.Delay(800);
@@ -194,6 +196,7 @@ static class Tests
         mob.VitalStats.Hp = 0;
         await Until(() => states.Contains(BotState.Loot));
         engine.Stop(); await Until(() => !engine.IsRunning);
+        await Until(() => stoppedNotification);
         var count = transport.Messages.Count;
         await Task.Delay(650);
         Check(transport.Messages.Count == count, "No commands after Stop completes");

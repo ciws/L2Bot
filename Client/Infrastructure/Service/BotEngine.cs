@@ -31,9 +31,10 @@ namespace Client.Infrastructure.Service
 
         private CancellationTokenSource? cancellationTokenSource;
         private Task? loopTask;
+        private volatile bool isRunning;
 
         public BotState State { get; private set; } = BotState.Idle;
-        public bool IsRunning => loopTask != null && !loopTask.IsCompleted;
+        public bool IsRunning => isRunning;
 
         public event Action<BotState>? StateChanged;
         public event Action<string>? Logged;
@@ -61,7 +62,7 @@ namespace Client.Infrastructure.Service
 
         public void Start()
         {
-            if (IsRunning)
+            if (loopTask != null && !loopTask.IsCompleted)
             {
                 return;
             }
@@ -69,6 +70,7 @@ namespace Client.Infrastructure.Service
             cancellationTokenSource?.Dispose();
             cancellationTokenSource = new CancellationTokenSource();
             var token = cancellationTokenSource.Token;
+            isRunning = true;
             loopTask = Task.Run(() => RunAsync(token));
             Log("Bot engine started");
         }
@@ -132,6 +134,7 @@ namespace Client.Infrastructure.Service
                 target = null;
                 sessionHero = null;
                 excludedUntil.Clear();
+                isRunning = false;
                 SetState(BotState.Idle);
                 Log("Bot engine stopped");
             }
