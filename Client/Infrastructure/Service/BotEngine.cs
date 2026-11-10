@@ -5,10 +5,13 @@ using Client.Domain.Service;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 
 namespace Client.Infrastructure.Service
 {
-    /// <summary>Autonomous target selection and approach; combat is added in the next roadmap step.</summary>
+    /// <summary>Autonomous targeting, approach and basic attacks with bounded retries.</summary>
     public class BotEngine : BotEngineInterface
     {
         private readonly WorldHandler worldHandler;
@@ -18,6 +21,13 @@ namespace Client.Infrastructure.Service
         private readonly double approachDistance;
         private NPC? target;
         private Hero? sessionHero;
+        private readonly double attackInterval, approachTimeout, combatTimeout, targetCooldown;
+        private readonly Dictionary<uint, long> excludedUntil = new();
+        private long approachStarted, lastDamage, lastAttack;
+        private uint lowestHp;
+        private bool attacking;
+
+        private static double Elapsed(long start) => Stopwatch.GetElapsedTime(start).TotalSeconds;
 
         private CancellationTokenSource? cancellationTokenSource;
         private Task? loopTask;
@@ -28,7 +38,8 @@ namespace Client.Infrastructure.Service
         public event Action<BotState>? StateChanged;
         public event Action<string>? Logged;
 
-        public BotEngine(WorldHandler worldHandler, AsyncPathMoverInterface pathMover, double searchRadius, double approachDistance)
+        public BotEngine(WorldHandler worldHandler, AsyncPathMoverInterface pathMover, double searchRadius, double approachDistance,
+            double attackInterval = 1, double approachTimeout = 15, double combatTimeout = 20, double targetCooldown = 30)
         {
             this.worldHandler = worldHandler;
             this.pathMover = pathMover;
@@ -38,6 +49,14 @@ namespace Client.Infrastructure.Service
                 throw new ArgumentOutOfRangeException(nameof(approachDistance), "Approach distance must be positive and within the search radius.");
             this.searchRadius = searchRadius;
             this.approachDistance = approachDistance;
+            foreach (var (name, value) in new[] { (nameof(attackInterval), attackInterval), (nameof(approachTimeout), approachTimeout),
+                (nameof(combatTimeout), combatTimeout), (nameof(targetCooldown), targetCooldown) })
+                if (!double.IsFinite(value) || value <= 0 || value > TimeSpan.FromDays(1).TotalSeconds)
+                    throw new ArgumentOutOfRangeException(name, "Combat intervals must be positive, finite, and at most one day.");
+            this.attackInterval = attackInterval;
+            this.approachTimeout = approachTimeout;
+            this.combatTimeout = combatTimeout;
+            this.targetCooldown = targetCooldown;
         }
 
         public void Start()
@@ -73,6 +92,11 @@ namespace Client.Infrastructure.Service
                 {
                     try
                     {
+                        if (sessionHero != null && (!worldHandler.IsConnected || !ReferenceEquals(sessionHero, worldHandler.Hero) || sessionHero.VitalStats.IsDead))
+                        {
+                            Log("Hero died or session disconnected; stopping engine");
+                            break;
+                        }
                         var nextState = State switch
                         {
                             BotState.Idle => await HandleIdleAsync(cancellationToken),
@@ -93,6 +117,7 @@ namespace Client.Infrastructure.Service
                     catch (Exception ex)
                     {
                         Log("Engine error: " + ex.Message);
+                        await HaltAttackAsync();
                         target = null;
                         SetState(BotState.Idle);
                         await Task.Delay(1000, cancellationToken);
@@ -102,8 +127,11 @@ namespace Client.Infrastructure.Service
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
             finally
             {
+                try { await HaltAttackAsync(); }
+                catch (Exception ex) { Log("Halt failed: " + ex.Message); }
                 target = null;
                 sessionHero = null;
+                excludedUntil.Clear();
                 SetState(BotState.Idle);
                 Log("Bot engine stopped");
             }
@@ -130,19 +158,45 @@ namespace Client.Infrastructure.Service
 
         private async Task<BotState> HandleTargetAsync(CancellationToken cancellationToken)
         {
+            await HaltAttackAsync();
             await Task.Delay(StateTickDelayMs, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!worldHandler.IsConnected) return BotState.Idle;
             sessionHero = worldHandler.Hero;
-            target = worldHandler.FindNearestTarget(searchRadius);
+            foreach (var id in excludedUntil.Where(p => Stopwatch.GetTimestamp() >= p.Value).Select(p => p.Key).ToArray()) excludedUntil.Remove(id);
+            target = worldHandler.FindNearestTarget(searchRadius, npc => !excludedUntil.ContainsKey(npc.Id));
             if (target == null) return BotState.Idle;
 
+            approachStarted = 0;
+            lastDamage = 0;
+            lastAttack = 0;
+
             cancellationToken.ThrowIfCancellationRequested();
-            worldHandler.RequestAcquireTarget(target.Id);
+            await worldHandler.RequestBotAcquireAsync(sessionHero!, target, searchRadius, cancellationToken);
             Log($"Target: {target.Name} ({target.Id}), distance {DistanceToTarget():F0}");
             return BotState.Approach;
         }
 
-        private bool HasValidTarget() => target != null && ReferenceEquals(sessionHero, worldHandler.Hero)
+        private bool HasValidTarget() => worldHandler.IsConnected && target != null && ReferenceEquals(sessionHero, worldHandler.Hero)
             && worldHandler.IsAvailableTarget(target, searchRadius);
+
+        private async Task HaltAttackAsync()
+        {
+            if (!attacking) return;
+            attacking = false;
+            if (sessionHero != null) await worldHandler.RequestBotHaltAsync(sessionHero);
+        }
+
+        private async Task<BotState> SkipTargetAsync(string reason)
+        {
+            if (target != null)
+            {
+                excludedUntil[target.Id] = Stopwatch.GetTimestamp() + (long)(targetCooldown * Stopwatch.Frequency);
+                Log($"Skipping target {target.Id} for {targetCooldown:F0}s: {reason}");
+            }
+            await HaltAttackAsync();
+            return BotState.Target;
+        }
 
         private double DistanceToTarget() => sessionHero!.Transform.Position.HorizontalDistance(target!.Transform.Position);
 
@@ -151,10 +205,14 @@ namespace Client.Infrastructure.Service
 
         private async Task<BotState> HandleApproachAsync(CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (!HasValidTarget()) return BotState.Target;
+            if (approachStarted == 0) approachStarted = Stopwatch.GetTimestamp();
+            if (Elapsed(approachStarted) >= approachTimeout) return await SkipTargetAsync("approach timeout");
             if (IsWithinApproachDistance())
             {
-                Log("Target reached; waiting for combat (day 4)");
+                approachStarted = 0;
+                Log("Target reached; starting combat");
                 return BotState.Fight;
             }
 
@@ -169,6 +227,7 @@ namespace Client.Infrastructure.Service
                 {
                     await Task.WhenAny(moveTask, Task.Delay(100, cancellationToken));
                     cancellationToken.ThrowIfCancellationRequested();
+                    if (Elapsed(approachStarted) >= approachTimeout) break;
                     if (!HasValidTarget() || IsWithinApproachDistance()) break;
                     if (target.Transform.Position.HorizontalDistance(destination) > approachDistance)
                     {
@@ -191,22 +250,47 @@ namespace Client.Infrastructure.Service
             }
             if (IsWithinApproachDistance())
             {
-                Log("Target reached; waiting for combat (day 4)");
+                approachStarted = 0;
+                Log("Target reached; starting combat");
                 return BotState.Fight;
             }
+            if (Elapsed(approachStarted) >= approachTimeout) return await SkipTargetAsync("approach timeout");
             if (repath) return BotState.Approach;
 
-            Log("Target not reached; searching again");
-            await Task.Delay(StateTickDelayMs, cancellationToken);
-            return BotState.Target;
+            return await SkipTargetAsync("route failed");
         }
 
         private async Task<BotState> HandleFightAsync(CancellationToken cancellationToken)
         {
-            // Day 3 holds the target without sending attacks. Day 4 adds combat.
             await Task.Delay(StateTickDelayMs, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!worldHandler.IsConnected || sessionHero == null || !ReferenceEquals(sessionHero, worldHandler.Hero) || sessionHero.VitalStats.IsDead)
+                return BotState.Target;
+            if (target != null && worldHandler.ContainsTarget(target) && target.VitalStats.IsDead)
+            {
+                Log($"Target {target.Id} died");
+                await HaltAttackAsync();
+                return BotState.Loot;
+            }
             if (!HasValidTarget()) return BotState.Target;
-            return IsWithinApproachDistance() ? BotState.Fight : BotState.Approach;
+            if (lastDamage == 0 || target!.VitalStats.Hp < lowestHp)
+            {
+                lowestHp = target!.VitalStats.Hp;
+                lastDamage = Stopwatch.GetTimestamp();
+            }
+            if (Elapsed(lastDamage) >= combatTimeout) return await SkipTargetAsync("no damage progress");
+            if (!IsWithinApproachDistance())
+            {
+                await HaltAttackAsync();
+                return BotState.Approach;
+            }
+            if (lastAttack == 0 || Elapsed(lastAttack) >= attackInterval)
+            {
+                attacking = true;
+                await worldHandler.RequestBotAttackAsync(sessionHero, target!, searchRadius, cancellationToken);
+                lastAttack = Stopwatch.GetTimestamp();
+            }
+            return BotState.Fight;
         }
 
         private async Task<BotState> HandleLootAsync(CancellationToken cancellationToken)

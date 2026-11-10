@@ -24,6 +24,8 @@
 
 L2Bot 2.0 is an ingame bot for Lineage 2 Interlude: a native DLL is injected into the game process, and a WPF client controls it from the outside — map, entities, chat, skills and automated pathfinding.
 
+The autonomous engine selects and approaches hostile NPCs, repeats basic attacks, and temporarily skips unreachable or stalled targets. Stop cancels pending bot commands; hero death or disconnect stops the engine. Automatic loot and recovery are upcoming roadmap steps. Live Interlude validation is still required; see [v2.1.4 notes](docs/en/release-notes/v2.1.4.md).
+
 ### 🧩 Project components
 
 | Component | Stack | Description |
@@ -74,6 +76,8 @@ Pathfinding is powered by [L2jGeodataPathFinder](https://github.com/k0t9i/L2jGeo
 ### ✨ Что это такое
 
 L2Bot 2.0 — внутриигровой бот для Lineage 2 Interlude: нативная DLL внедряется в процесс игры, а WPF-клиент управляет ею снаружи — карта, сущности, чат, скиллы и автоматический поиск пути.
+
+Автономный движок выбирает враждебных NPC, подходит, повторяет базовые атаки и временно пропускает недостижимые или зависшие цели. Stop отменяет ожидающие команды бота; смерть героя или отключение останавливает движок. Автоматический лут и восстановление — следующие этапы. Живая проверка Interlude ещё требуется; см. [заметки v2.1.4](docs/ru/release-notes/v2.1.4.md).
 
 ### 🧩 Состав проекта
 

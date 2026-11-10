@@ -128,7 +128,7 @@ static class Tests
         await Until(() => engine.State == BotState.Fight);
         Check(fakeMover.Calls == 0, "Already near target: do not move");
         Check(transport.Messages.Count(m => m == "AcquireTarget:2") == 1, "Acquire target once");
-        Check(!transport.Messages.Any(m => m.StartsWith("Attack")), "Day 3 never attacks");
+        await Until(() => transport.Messages.Any(m => m == "Attack:2"));
         near.Transform.Position = new Vector3(500, 0, 0);
         await Until(() => fakeMover.Calls == 1);
         engine.Stop();
@@ -140,7 +140,7 @@ static class Tests
         await Until(() => fakeMover.Cancelled == 2);
         engine.Stop();
         await Until(() => !engine.IsRunning);
-        Console.WriteLine("PASS engine acquisition, hold, moving target, Stop, restart, target deletion");
+        Console.WriteLine("PASS engine acquisition, attack, moving target, Stop, restart, target deletion");
 
         // A real approach reaches Fight only after world position confirms arrival.
         near = Mob(3, 500); world.Handle(new CreatureCreatedEvent(near));
@@ -173,6 +173,122 @@ static class Tests
         try { _ = new BotEngine(world, fakeMover, double.NaN, 80); throw new Exception("Expected invalid radius rejection"); }
         catch (ArgumentOutOfRangeException) { }
         Console.WriteLine("PASS error recovery cleanup, invalid configuration");
+        await CombatChecks();
+    }
+
+    static async Task CombatChecks()
+    {
+        // Damage extends the combat deadline; a confirmed death enters Loot, deletion alone does not.
+        var (world, hero, transport) = World();
+        var mob = Mob(2, 20); world.Handle(new CreatureCreatedEvent(mob));
+        var engine = new BotEngine(world, new BlockingMover(), 1000, 80, 0.5, 1, 1.5, 3);
+        var states = new ConcurrentQueue<BotState>();
+        engine.StateChanged += states.Enqueue;
+        engine.Start();
+        await Until(() => transport.Messages.Contains("Attack:2"));
+        await Task.Delay(800);
+        mob.VitalStats.Hp = 80;
+        await Task.Delay(900);
+        Check(engine.State == BotState.Fight, "Damage resets the progress timeout");
+        Check(transport.Messages.Count(m => m == "Attack:2") >= 2, "Attacks repeat while target lives");
+        mob.VitalStats.Hp = 0;
+        await Until(() => states.Contains(BotState.Loot));
+        engine.Stop(); await Until(() => !engine.IsRunning);
+        var count = transport.Messages.Count;
+        await Task.Delay(650);
+        Check(transport.Messages.Count == count, "No commands after Stop completes");
+        Check(transport.Messages.Any(m => m.StartsWith("Move:")), "Combat exit requests halt at current position");
+
+        // Stop during a pending transport send must cancel the actual attack operation.
+        (world, hero, transport) = World();
+        mob = Mob(2, 20); world.Handle(new CreatureCreatedEvent(mob));
+        transport.BlockAttacks = true;
+        engine = new BotEngine(world, new BlockingMover(), 1000, 80);
+        engine.Start(); await Until(() => transport.AttackPending);
+        engine.Stop(); await Until(() => !engine.IsRunning);
+        Check(!transport.Messages.Contains("Attack:2"), "Stop cancels pending attack write");
+
+        foreach (var exit in new[] { "disconnect", "hero death", "session replacement", "target deletion" })
+        {
+            (world, hero, transport) = World();
+            mob = Mob(2, 20); world.Handle(new CreatureCreatedEvent(mob));
+            engine = new BotEngine(world, new BlockingMover(), 1000, 80, 0.5);
+            states = new ConcurrentQueue<BotState>(); engine.StateChanged += states.Enqueue;
+            engine.Start(); await Until(() => transport.Messages.Contains("Attack:2"));
+            if (exit == "disconnect") transport.Connected = false;
+            else if (exit == "hero death") hero.VitalStats.Hp = 0;
+            else if (exit == "session replacement") world.Handle(new HeroCreatedEvent(Hero()));
+            else world.Handle(new CreatureDeletedEvent(mob.Id));
+            var attacks = transport.Messages.Count(m => m == "Attack:2");
+            if (exit == "target deletion") await Until(() => engine.State != BotState.Fight);
+            else await Until(() => !engine.IsRunning);
+            await Task.Delay(650);
+            Check(transport.Messages.Count(m => m == "Attack:2") == attacks, exit + " stops attacks");
+            Check(!states.Contains(BotState.Loot), exit + " does not imply a kill");
+            if (exit == "disconnect")
+            {
+                transport.Connected = true;
+                await Task.Delay(650);
+                Check(!engine.IsRunning, "Reconnect requires an explicit Start");
+            }
+            engine.Stop(); await Until(() => !engine.IsRunning);
+        }
+        Console.WriteLine("PASS repeated attacks, damage progress, death/Loot, Stop during send, disconnect and hero death");
+
+        // An unreachable/stalled nearest target is skipped; the next candidate can be acquired.
+        foreach (var approach in new[] { true, false })
+        {
+            (world, hero, transport) = World();
+            mob = Mob(2, approach ? 500 : 20); world.Handle(new CreatureCreatedEvent(mob));
+            var next = Mob(3, approach ? 600 : 30); world.Handle(new CreatureCreatedEvent(next));
+            var mover = new BlockingMover();
+            engine = new BotEngine(world, mover, 1000, 80, 0.5, 0.7, 0.7, 5);
+            engine.Start();
+            await Until(() => transport.Messages.Contains("AcquireTarget:3"));
+            Check(transport.Messages.Count(m => m == "AcquireTarget:2") == 1, "Timed-out target is excluded from immediate reacquisition");
+            if (approach) Check(mover.Cancelled >= 1, "Approach timeout cancels route");
+            engine.Stop(); await Until(() => !engine.IsRunning);
+        }
+        // Exclusions expire rather than permanently disabling a mob.
+        (world, hero, transport) = World();
+        mob = Mob(2, 20); world.Handle(new CreatureCreatedEvent(mob));
+        engine = new BotEngine(world, new BlockingMover(), 1000, 80, 0.5, 1, 0.6, 0.6);
+        engine.Start();
+        await Until(() => transport.Messages.Count(m => m == "AcquireTarget:2") == 2);
+        engine.Stop(); await Until(() => !engine.IsRunning);
+        Console.WriteLine("PASS approach timeout, combat timeout, target exclusion and cooldown expiry");
+
+        (world, hero, transport) = World();
+        mob = Mob(2, 300); world.Handle(new CreatureCreatedEvent(mob));
+        world.Handle(new CreatureCreatedEvent(Mob(3, 900)));
+        var repathMover = new BlockingMover();
+        engine = new BotEngine(world, repathMover, 1000, 80, approachTimeout: 0.7, targetCooldown: 5);
+        engine.Start(); await Until(() => repathMover.Calls > 0);
+        for (var i = 0; i < 8; ++i)
+        {
+            mob.Transform.Position = new Vector3(i % 2 == 0 ? 500 : 300, 0, 0);
+            await Task.Delay(120);
+        }
+        await Until(() => transport.Messages.Contains("AcquireTarget:3"));
+        Check(repathMover.Calls > 1 && transport.Messages.Count(m => m == "AcquireTarget:2") == 1,
+            "Route recalculation must not reset the approach deadline");
+        engine.Stop(); await Until(() => !engine.IsRunning);
+
+        (world, hero, transport) = World();
+        world.Handle(new CreatureCreatedEvent(Mob(2, 500)));
+        world.Handle(new CreatureCreatedEvent(Mob(3, 600)));
+        engine = new BotEngine(world, new AsyncPathMover(world, new FakePathfinder(), 1, 1, 8, 16), 1000, 80);
+        engine.Start(); await Until(() => transport.Messages.Contains("AcquireTarget:3"));
+        engine.Stop(); await Until(() => !engine.IsRunning);
+        Check(!transport.Messages.Any(m => m.StartsWith("Attack:")), "Failed path never starts combat");
+        Check(transport.Messages.Count(m => m == "AcquireTarget:2") == 1, "Failed path excludes the target");
+        Console.WriteLine("PASS repath deadline and failed-route exclusion");
+
+        foreach (var invalid in new[] { 0, -1, double.NaN, double.PositiveInfinity, 86401 })
+        {
+            try { _ = new BotEngine(world, new BlockingMover(), 1000, 80, combatTimeout: invalid); throw new Exception("Expected invalid interval rejection"); }
+            catch (ArgumentOutOfRangeException ex) { Check(ex.ParamName == "combatTimeout", "Identify invalid combat setting"); }
+        }
     }
 }
 
@@ -182,12 +298,23 @@ sealed class MessageBuilder : OutgoingMessageBuilderInterface
 }
 sealed class RecordingTransport : TransportInterface
 {
+    public bool Connected = true;
+    public bool BlockAttacks;
+    public volatile bool AttackPending;
     public ConcurrentQueue<string> Messages { get; } = new();
     public event TransportInterface.DelegateMessage? Message { add { } remove { } }
-    public bool IsConnected() => true;
+    public bool IsConnected() => Connected;
     public Task ConnectAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-    public Task SendAsync(string data, CancellationToken cancellationToken = default)
-    { Messages.Enqueue(data); return Task.CompletedTask; }
+    public async Task SendAsync(string data, CancellationToken cancellationToken = default)
+    {
+        if (BlockAttacks && data.StartsWith("Attack:"))
+        {
+            AttackPending = true;
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        if (Connected) Messages.Enqueue(data);
+    }
     public Task StartReceiveAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 sealed class FakePathfinder : PathfinderInterface

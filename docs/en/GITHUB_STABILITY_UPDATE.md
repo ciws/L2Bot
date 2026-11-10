@@ -1,66 +1,38 @@
-# Stability Update - Transport, Lifecycle, and Build Hardening
+# Stability Update — Transport, Lifecycle, and Build
 
-## Summary
-This update focuses on runtime stability, shutdown safety, and build portability across the mixed C++/C# solution.
+Current documentation baseline: **v2.1.4**, updated on 2026-11-10.
 
-Primary goals addressed:
-- Eliminate high-risk shutdown hangs and deadlock-prone startup behavior.
-- Add explicit cancellation and reconnect control on the C# client side.
-- Harden named pipe communication under disconnect/reconnect and stop conditions.
-- Make project files build reliably in `x86` and `x64` configurations.
+## Platform and build
 
-## Key Improvements
+- The WPF client targets **.NET 8** (`net8.0-windows`) and **x86**.
+- The injected DLL and native libraries use **Release | Win32** for the supported 32-bit Lineage 2 Interlude client. Existing x64 project configurations do not establish support for a 64-bit game runtime.
+- Build output is `Release\bin\` at the repository root.
+- `build.yml` runs regression checks and builds the native DLL and WPF client on Windows. `release.yml` also builds the native pathfinder and packages the Windows x86 release with geodata.
+- Release archive: `L2Bot-win-x86.zip`. See [SETUP](SETUP.md) for requirements and build instructions.
 
-### C# Client Stability
-- Reworked bot lifecycle from `async void` fire-and-forget to cancellable task-based flow.
-- Added controlled startup/shutdown handling in WPF `App` and graceful bot stop on exit.
-- Added cancellation-aware transport API (`ConnectAsync`, `StartReceiveAsync`, `SendAsync`).
-- Hardened named pipe handshake/read behavior and disposal checks.
-- Fixed path mover busy-spin bug (`Task.Delay` without await in sync loop).
-- Improved send-path fault visibility by logging asynchronous send failures.
+## Connection and synchronization
 
-### C++ Runtime Stability
-- Added transport stop hook and integrated stop signaling before worker thread joins.
-- Converted stop flag coordination to atomic usage in world handler threads.
-- Reworked named pipe overlapped I/O wait loops to avoid unbounded blocking during stop.
-- Added explicit stop/cancel flow for named pipes (`CancelIoEx` + event signaling).
-- Corrected connect path handling for overlapped `ConnectNamedPipe` edge cases.
-- Moved heavy initialization and teardown work out of `DllMain` into a worker thread to reduce loader-lock risk.
+- The client strips the newline from the pipe name received during the handshake, serializes writes, and assembles complete messages before parsing.
+- `Invalidate` uses the JSON command format. Each session clears client state and receives a full snapshot with the hero first.
+- Resync preserves event-driven item, skill, and buff caches in the DLL. Duplicate creates update existing client entities.
+- JSON field names and string values are escaped.
+- Repository updates and snapshot serialization share a reentrant world-state lock. Skill cast and cooldown deadlines no longer depend on background timer threads.
 
-### Build & Portability
-- Replaced absolute include paths with relative project include paths.
-- Added missing x64 language standard settings and include directories.
-- Fixed x64 precompiled-header project configuration mismatches.
-- Updated C# `Directory.Build.Props` to avoid strict dependency on `$(SolutionDir)` for CLI builds.
+## Runtime and client behavior
 
-## Files Updated
-- `Client/App.xaml.cs`
-- `Client/Bot.cs`
-- `Client/Directory.Build.Props`
-- `Client/Domain/Service/WorldHandler.cs`
-- `Client/Domain/Transports/TransportInterface.cs`
-- `Client/Infrastructure/Service/AsyncPathMover.cs`
-- `Client/Infrastructure/Transports/NamedPipeTransport.cs`
-- `L2BotCore/Domain/Services/WorldHandler.h`
-- `L2BotCore/Domain/Transports/TransportInterface.h`
-- `L2BotCore/L2BotCore.vcxproj`
-- `L2BotDll/L2BotDll.vcxproj`
-- `L2BotDll/Transports/NamedPipe.h`
-- `L2BotDll/Transports/NamedPipeTransport.h`
-- `L2BotDll/dllmain.cpp`
+- The injected runtime stays loaded until the game closes. DLL detach does not wait for a worker under the Windows loader lock.
+- Hook trampolines use executable memory and flush the instruction cache. Thread enumeration uses the correct structure size and process filter.
+- Client startup errors are visible, removed view models release subscriptions, and chat history is bounded.
+- Superseded movement routes stop retrying. Inventory updates distinguish equipment types, soulshot autouse changes propagate, and buffs have client models and a Buffs tab.
 
-## Validation Performed
-Solution was built with MSBuild in all major matrix combinations:
-- `Debug | x86` - PASS
-- `Release | x86` - PASS
-- `Debug | x64` - PASS
-- `Release | x64` - PASS
+## Validation and limits
 
-## Release Artifacts
-Generated locally:
-- `artifacts/L2Bot2.0-release-x86.zip`
-- `artifacts/L2Bot2.0-release-x64.zip`
+The v2.1.3 work log records successful Windows CI checks covering native regressions, production C# commands through the C++ parser and dispatcher, actual named pipe handshake, repeated resync, reconnect, shutdown, and x86 native/WPF builds. These are recorded results from that release; current local Windows checks are described in the v2.1.4 notes below.
 
-## Known Warnings / Follow-up
-- `Client` currently targets `net6.0-windows`, which is out of support (NETSDK1138).
-- x64 native builds still emit pointer truncation/sign-size warnings in legacy hooking paths. These should be treated as technical debt if x64 runtime support is required.
+Live Interlude validation is still required for game structure offsets, five-byte hooks, and the external pathfinder. Close the game to unload the injected runtime. Geodata startup checks still require an online request; interrupted files restart downloading on the next run.
+
+The engine selects and approaches targets, repeats basic attacks, and temporarily excludes unreachable or stalled targets. Stop cancels pending bot writes and requests an action interruption; hero death or disconnect stops the engine. Confirmed target death enters `Loot`, with automatic pickup planned for day 5 of the [roadmap](ROADMAP.md).
+
+See the [v2.1.3 release notes](release-notes/v2.1.3.md) for the detailed change list.
+
+Combat settings, local Windows validation, and current limits are described in the [v2.1.4 release notes](release-notes/v2.1.4.md).

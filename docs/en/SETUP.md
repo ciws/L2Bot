@@ -72,6 +72,19 @@ The output (`Release\bin\`) automatically receives: `config.json`, `Assets\icons
 | `NodeDistanceTolerance` | `8` | Node reach tolerance |
 | `NextNodeDistanceTolerance` | `16` | Next-node switch tolerance |
 
+Bot settings (restart the client after editing):
+
+| Parameter | Default | Description |
+|---|---|---|
+| `TargetSearchRadius` | `1500` | Hostile NPC search radius |
+| `TargetApproachDistance` | `80` | Horizontal and vertical approach tolerance |
+| `AttackIntervalSeconds` | `1` | Minimum attack request interval; 500 ms engine tick |
+| `ApproachTimeoutSeconds` | `15` | Approach deadline across route recalculations |
+| `CombatProgressTimeoutSeconds` | `20` | Deadline without a new lowest observed target HP |
+| `TargetCooldownSeconds` | `30` | Exclusion after a failed route or timeout |
+
+Combat intervals must be positive, finite, and at most 86400 seconds. Stop requests movement to the current position to interrupt the action. Hero death or disconnect stops the engine; press Start to resume. Automatic loot, rest, and consumables remain future steps.
+
 ## Troubleshooting
 
 - Injected DLL log: `app.log` next to `L2BotDll.dll`

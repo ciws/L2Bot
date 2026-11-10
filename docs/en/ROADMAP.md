@@ -7,7 +7,7 @@ Goal: turn the client from a "radar with manual control" into a real bot with an
 Legend: 🖥 C# client • 💉 C++ DLL • 🔧 infrastructure
 
 ## Day 1 — Foundation: .NET 8 + CI build check 🔧
-- Upgrade client `net6.0-windows` → `net8.0-windows` (v6 is out of support)
+- Move the client to `net8.0-windows` — completed
 - `build.yml` workflow: build the whole solution on every push to master (no release)
 - Clean up client warnings
 - **Commit:** `build: net8 + ci build check on every push`
@@ -28,11 +28,14 @@ Legend: 🖥 C# client • 💉 C++ DLL • 🔧 infrastructure
 - Day 3 acquires and approaches a target, then holds in `Fight` without attacking. A missing/dead/occupied target triggers a new search; Stop cancels the route.
 - Logic checks: `dotnet run --project tests/BotEngine.Tests -c Release`. Full client/DLL build runs in Windows CI; live game validation is still required.
 
-## Day 4 — Combat 🖥
+## Day 4 — Combat 🖥 ✅ (v2.1.4)
 - Attack loop until the target dies, timeouts
 - Anti-stuck: target unreachable for N seconds → next target
-- `Fight → Loot` transition on the death event
+- `Fight → Loot` on confirmed target death; disappearance alone triggers a new search
 - **Commit:** `feat: combat loop with anti-stuck`
+- Repeating basic attacks; Stop cancels pending command writes. Hero death or disconnect stops the engine.
+- Approach timeout 15s, no-damage timeout 20s, skipped target cooldown 30s, attack interval 1s. Configure in `config.json` and restart; see [release notes](release-notes/v2.1.4.md).
+- Local Windows regression, protocol, native and WPF build checks pass; live Interlude validation remains required.
 
 ## Day 5 — Looting 🖥
 - Pick up drop within radius after a kill (`DropCreatedEvent` events)

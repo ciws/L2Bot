@@ -8,5 +8,9 @@
   "NodeDistanceTolerance": 8,
   "NextNodeDistanceTolerance": 16,
   "TargetSearchRadius": 1500,
-  "TargetApproachDistance": 80
+  "TargetApproachDistance": 80,
+  "AttackIntervalSeconds": 1,
+  "ApproachTimeoutSeconds": 15,
+  "CombatProgressTimeoutSeconds": 20,
+  "TargetCooldownSeconds": 30
 }

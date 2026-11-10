@@ -364,4 +364,8 @@ FodyWeavers.xsd
 
 # Agent working files and secrets - NEVER commit
 AGENTS.md
+ACCESS_PRIVATE.md
 *.token
+
+# Finder metadata
+.DS_Store

@@ -11,6 +11,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
+using System.Threading;
 using Client.Domain.Transports;
 
 namespace Client.Domain.Service
@@ -47,7 +48,11 @@ namespace Client.Domain.Service
                 && currentHero.Transform.Position.HorizontalDistance(npc.Transform.Position) <= radius;
         }
 
-        public NPC? FindNearestTarget(double radius)
+        public bool IsConnected => transport.IsConnected();
+
+        public bool ContainsTarget(NPC npc) => creatures.TryGetValue(npc.Id, out var current) && ReferenceEquals(current, npc);
+
+        public NPC? FindNearestTarget(double radius, Func<NPC, bool>? predicate = null)
         {
             var currentHero = Hero;
             if (currentHero == null || currentHero.VitalStats.IsDead)
@@ -56,7 +61,7 @@ namespace Client.Domain.Service
             }
 
             return creatures.Values.OfType<NPC>()
-                .Where(npc => IsAvailableTarget(npc, radius))
+                .Where(npc => IsAvailableTarget(npc, radius) && (predicate == null || predicate(npc)))
                 .OrderBy(npc => currentHero.Transform.Position.HorizontalSqrDistance(npc.Transform.Position))
                 .ThenBy(npc => npc.Id)
                 .FirstOrDefault();
@@ -107,6 +112,29 @@ namespace Client.Domain.Service
             }
 
             SendMessage(OutgoingMessageTypeEnum.Attack, id);
+        }
+
+        public async Task RequestBotAttackAsync(Hero expectedHero, NPC npc, double radius, CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested();
+            if (!IsConnected || !ReferenceEquals(Hero, expectedHero) || !IsAvailableTarget(npc, radius)) return;
+            await transport.SendAsync(outgoingMessageBuilder.Build(new OutgoingMessage<uint>(OutgoingMessageTypeEnum.Attack, npc.Id)), token);
+        }
+
+        public async Task RequestBotAcquireAsync(Hero expectedHero, NPC npc, double radius, CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested();
+            if (!IsConnected || !ReferenceEquals(Hero, expectedHero) || !IsAvailableTarget(npc, radius) || expectedHero.TargetId == npc.Id) return;
+            await transport.SendAsync(outgoingMessageBuilder.Build(new OutgoingMessage<uint>(OutgoingMessageTypeEnum.AcquireTarget, npc.Id)), token);
+        }
+
+        public async Task RequestBotHaltAsync(Hero expectedHero)
+        {
+            if (!IsConnected || !ReferenceEquals(Hero, expectedHero) || expectedHero.VitalStats.IsDead) return;
+            var position = expectedHero.Transform.Position;
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            await transport.SendAsync(outgoingMessageBuilder.Build(new OutgoingMessage<Vector3>(OutgoingMessageTypeEnum.Move,
+                new Vector3(position.X, position.Y, position.Z))), timeout.Token);
         }
 
         public void RequestPickUp(uint id)

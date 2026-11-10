@@ -252,7 +252,11 @@ namespace Client
                     x.GetRequiredService<WorldHandler>(),
                     x.GetRequiredService<AsyncPathMoverInterface>(),
                     config.GetValue<double?>("TargetSearchRadius") ?? 1500,
-                    config.GetValue<double?>("TargetApproachDistance") ?? 80));
+                    config.GetValue<double?>("TargetApproachDistance") ?? 80,
+                    config.GetValue<double?>("AttackIntervalSeconds") ?? 1,
+                    config.GetValue<double?>("ApproachTimeoutSeconds") ?? 15,
+                    config.GetValue<double?>("CombatProgressTimeoutSeconds") ?? 20,
+                    config.GetValue<double?>("TargetCooldownSeconds") ?? 30));
         }
     }
 }
